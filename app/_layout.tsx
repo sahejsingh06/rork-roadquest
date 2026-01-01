@@ -5,6 +5,7 @@ import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar } from "expo-status-bar";
 import { TripProvider } from "@/contexts/TripContext";
+import { UserProvider } from "@/contexts/UserContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -38,11 +39,13 @@ function RootLayoutNav() {
 export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TripProvider>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <RootLayoutNav />
-        </GestureHandlerRootView>
-      </TripProvider>
+      <UserProvider>
+        <TripProvider>
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <RootLayoutNav />
+          </GestureHandlerRootView>
+        </TripProvider>
+      </UserProvider>
     </QueryClientProvider>
   );
 }
