@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, Pressable, Platform } from 'react-native';
-import MapView, { Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import { StyleSheet, Text, View, Pressable } from 'react-native';
+import MapView, { Polyline } from 'react-native-maps';
 import { Play, Square, Pause } from 'lucide-react-native';
 import { useTrip } from '@/contexts/TripContext';
 import { theme } from '@/constants/theme';
@@ -51,39 +51,29 @@ export default function DriveScreen() {
   const displaySpeed = useKmh ? currentSpeed : currentSpeed * 0.621371;
   const speedUnit = useKmh ? 'km/h' : 'mph';
 
-  const mapStyle = [
-    {
-      elementType: 'geometry',
-      stylers: [{ color: '#1C1C1E' }],
-    },
-    {
-      elementType: 'labels.text.fill',
-      stylers: [{ color: '#8E8E93' }],
-    },
-    {
-      elementType: 'labels.text.stroke',
-      stylers: [{ color: '#000000' }],
-    },
-    {
-      featureType: 'road',
-      elementType: 'geometry',
-      stylers: [{ color: '#2C2C2E' }],
-    },
-    {
-      featureType: 'road',
-      elementType: 'geometry.stroke',
-      stylers: [{ color: '#1C1C1E' }],
-    },
-    {
-      featureType: 'water',
-      elementType: 'geometry',
-      stylers: [{ color: '#0A0A0A' }],
-    },
-  ];
-
   return (
     <View style={styles.container}>
-      <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <MapView
+        style={styles.map}
+        region={region}
+        mapType="standard"
+        showsUserLocation
+        followsUserLocation
+        showsMyLocationButton={false}
+      >
+        {currentTrip && currentTrip.locations.length > 1 && (
+          <Polyline
+            coordinates={currentTrip.locations.map(loc => ({
+              latitude: loc.latitude,
+              longitude: loc.longitude,
+            }))}
+            strokeColor={theme.colors.dark.accent}
+            strokeWidth={4}
+          />
+        )}
+      </MapView>
+
+      <SafeAreaView edges={['top']} style={styles.headerSafeArea}>
         <View style={styles.header}>
           <Text style={styles.logo}>RoadQuest</Text>
           <Pressable onPress={toggleUnit} style={styles.unitToggle}>
@@ -92,30 +82,8 @@ export default function DriveScreen() {
         </View>
       </SafeAreaView>
 
-      <View style={styles.mapContainer}>
-        <MapView
-          style={styles.map}
-          region={region}
-          provider={Platform.OS === 'web' ? undefined : PROVIDER_GOOGLE}
-          customMapStyle={mapStyle}
-          showsUserLocation
-          followsUserLocation
-          showsMyLocationButton={false}
-        >
-          {currentTrip && currentTrip.locations.length > 1 && (
-            <Polyline
-              coordinates={currentTrip.locations.map(loc => ({
-                latitude: loc.latitude,
-                longitude: loc.longitude,
-              }))}
-              strokeColor={theme.colors.dark.accent}
-              strokeWidth={4}
-            />
-          )}
-        </MapView>
-
-        <View style={styles.overlay}>
-          <View style={styles.speedContainer}>
+      <View style={styles.overlay}>
+        <View style={styles.speedContainer}>
             <Text style={styles.speed}>
               {Math.round(displaySpeed)}
             </Text>
@@ -145,13 +113,12 @@ export default function DriveScreen() {
             </View>
           )}
 
-          {currentTrip?.isPaused && (
-            <View style={styles.pausedBanner}>
-              <Pause size={16} color={theme.colors.dark.warning} />
-              <Text style={styles.pausedText}>Auto-Paused</Text>
-            </View>
-          )}
-        </View>
+        {currentTrip?.isPaused && (
+          <View style={styles.pausedBanner}>
+            <Pause size={16} color={theme.colors.dark.warning} />
+            <Text style={styles.pausedText}>Auto-Paused</Text>
+          </View>
+        )}
       </View>
 
       <SafeAreaView edges={['bottom']} style={styles.bottomSafeArea}>
@@ -185,8 +152,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.dark.background,
   },
-  safeArea: {
-    backgroundColor: theme.colors.dark.background,
+  map: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  headerSafeArea: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     zIndex: 10,
   },
   header: {
@@ -204,7 +177,7 @@ const styles = StyleSheet.create({
   unitToggle: {
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
-    backgroundColor: theme.colors.dark.card,
+    backgroundColor: 'rgba(44, 44, 46, 0.8)',
     borderRadius: theme.borderRadius.md,
   },
   unitText: {
@@ -212,21 +185,12 @@ const styles = StyleSheet.create({
     color: theme.colors.dark.accent,
     fontWeight: '600' as const,
   },
-  mapContainer: {
-    flex: 1,
-    position: 'relative',
-  },
-  map: {
-    width: '100%',
-    height: '100%',
-  },
   overlay: {
     position: 'absolute',
-    top: 0,
+    top: 100,
     left: 0,
     right: 0,
     paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.xl,
   },
   speedContainer: {
     alignItems: 'center',
@@ -304,7 +268,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.xl,
   },
   startButton: {
-    backgroundColor: theme.colors.dark.accent,
+    backgroundColor: 'rgba(0, 122, 255, 0.3)',
   },
   startButtonText: {
     ...theme.typography.title3,
