@@ -22,7 +22,7 @@ function RootLayoutNav() {
   }, [isLoading]);
 
   if (isLoading) {
-    return <View style={{ flex: 1 }} />;
+    return <View style={{ flex: 1, backgroundColor: '#000000' }} />;
   }
 
   return (

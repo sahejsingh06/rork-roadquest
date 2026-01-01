@@ -1,5 +1,5 @@
 import createContextHook from '@nkzw/create-context-hook';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { UserProfile } from '@/types/user';
 
@@ -9,13 +9,11 @@ export const [UserProvider, useUser] = createContextHook(() => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    loadUserProfile();
-  }, []);
-
-  const loadUserProfile = async () => {
+  const loadUserProfile = useCallback(async () => {
+    console.log('Loading user profile...');
     try {
       const stored = await AsyncStorage.getItem(USER_PROFILE_KEY);
+      console.log('User profile loaded:', stored ? 'found' : 'not found');
       if (stored) {
         const profile = JSON.parse(stored) as UserProfile;
         setUserProfile(profile);
@@ -23,9 +21,14 @@ export const [UserProvider, useUser] = createContextHook(() => {
     } catch (error) {
       console.error('Error loading user profile:', error);
     } finally {
+      console.log('Setting isLoading to false');
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadUserProfile();
+  }, [loadUserProfile]);
 
   const saveUserProfile = async (profile: UserProfile) => {
     try {
