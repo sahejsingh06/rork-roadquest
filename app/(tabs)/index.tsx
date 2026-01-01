@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, Pressable } from 'react-native';
-import MapView, { Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
+import { StyleSheet, Text, View, Pressable, Platform } from 'react-native';
+import MapView, { Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Play, Square, Pause } from 'lucide-react-native';
 import { useTrip } from '@/contexts/TripContext';
 import { theme } from '@/constants/theme';
@@ -55,7 +55,7 @@ export default function DriveScreen() {
     <View style={styles.container}>
       <MapView
         style={styles.map}
-        provider={PROVIDER_DEFAULT}
+        provider={Platform.OS === 'ios' ? undefined : PROVIDER_GOOGLE}
         region={region}
         mapType="standard"
         showsUserLocation
