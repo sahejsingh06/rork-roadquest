@@ -38,7 +38,9 @@ export const [TripProvider, useTrip] = createContextHook(() => {
     return () => {
       if (locationSubscription.current) {
         try {
-          locationSubscription.current.remove();
+          if (typeof locationSubscription.current.remove === 'function') {
+            locationSubscription.current.remove();
+          }
         } catch (error) {
           console.error('Error removing location subscription:', error);
         }
@@ -225,7 +227,9 @@ export const [TripProvider, useTrip] = createContextHook(() => {
   const stopTrip = useCallback(() => {
     if (locationSubscription.current) {
       try {
-        locationSubscription.current.remove();
+        if (typeof locationSubscription.current.remove === 'function') {
+          locationSubscription.current.remove();
+        }
       } catch (error) {
         console.error('Error removing location subscription:', error);
       }
