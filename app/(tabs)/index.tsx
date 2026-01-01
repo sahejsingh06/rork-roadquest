@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, Pressable } from 'react-native';
-import MapView, { Polyline } from 'react-native-maps';
+import MapView, { Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
 import { Play, Square, Pause } from 'lucide-react-native';
 import { useTrip } from '@/contexts/TripContext';
 import { theme } from '@/constants/theme';
@@ -55,6 +55,7 @@ export default function DriveScreen() {
     <View style={styles.container}>
       <MapView
         style={styles.map}
+        provider={PROVIDER_DEFAULT}
         region={region}
         mapType="standard"
         showsUserLocation
@@ -252,11 +253,14 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
   },
   bottomSafeArea: {
-    backgroundColor: theme.colors.dark.background,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
   },
   controlsContainer: {
     paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.lg,
     paddingBottom: theme.spacing.md,
   },
   controlButton: {
@@ -268,11 +272,13 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.xl,
   },
   startButton: {
-    backgroundColor: 'rgba(0, 122, 255, 0.3)',
+    backgroundColor: 'rgba(0, 122, 255, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 122, 255, 0.3)',
   },
   startButtonText: {
     ...theme.typography.title3,
-    color: theme.colors.dark.background,
+    color: '#007AFF',
     fontWeight: '700' as const,
   },
   stopButton: {

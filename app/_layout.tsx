@@ -4,26 +4,16 @@ import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar } from "expo-status-bar";
-import { View } from "react-native";
 import { TripProvider } from "@/contexts/TripContext";
-import { UserProvider, useUser } from "@/contexts/UserContext";
 
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
 function RootLayoutNav() {
-  const { isLoading } = useUser();
-
   useEffect(() => {
-    if (!isLoading) {
-      SplashScreen.hideAsync();
-    }
-  }, [isLoading]);
-
-  if (isLoading) {
-    return <View style={{ flex: 1, backgroundColor: '#000000' }} />;
-  }
+    SplashScreen.hideAsync();
+  }, []);
 
   return (
     <>
@@ -48,13 +38,11 @@ function RootLayoutNav() {
 export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
-      <UserProvider>
-        <TripProvider>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <RootLayoutNav />
-          </GestureHandlerRootView>
-        </TripProvider>
-      </UserProvider>
+      <TripProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <RootLayoutNav />
+        </GestureHandlerRootView>
+      </TripProvider>
     </QueryClientProvider>
   );
 }
