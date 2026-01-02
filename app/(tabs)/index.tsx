@@ -209,19 +209,19 @@ export default function DriveScreen() {
       icon: RouteIcon,
       iconColor: '#30D158',
       title: 'Track Your Journeys',
-      description: 'Record every kilometer and explore new roads around the world. Our GPS tracking captures your adventures in real-time.',
+      description: 'Transform every drive into a recorded adventure. RoadQuest uses GPS to map your routes, track distance, speed, and time automatically.\n\nDiscover what percentage of the world\'s roads you\'ve explored and visualize your driving history on an interactive map.',
     },
     {
       icon: Target,
       iconColor: '#FF9F0A',
       title: 'Complete Missions',
-      description: 'Earn GPS Points by completing daily, weekly, and monthly challenges. Unlock rewards and level up your profile.',
+      description: 'Earn GPS Points with every kilometer you drive. Complete daily missions like "Drive 5km today" or weekly challenges like "Explore 10 new roads."\n\nUse your points to unlock car icons, profile badges, map themes, and exclusive rewards in the GP Store.',
     },
     {
       icon: Trophy,
       iconColor: '#FFD700',
       title: 'Compete Globally',
-      description: 'Climb leaderboards and see how you rank against drivers worldwide. Discover who drives the most roads.',
+      description: 'Join a worldwide community of drivers. Climb leaderboards based on distance driven, roads covered, and GPS Points earned.\n\nCompete safely with friends or globally—no speed rankings, just pure exploration and consistency.',
     },
   ];
 
@@ -1091,9 +1091,9 @@ const styles = StyleSheet.create({
   featureDescription: {
     ...theme.typography.body,
     color: theme.colors.dark.textSecondary,
-    lineHeight: 24,
+    lineHeight: 26,
     textAlign: 'center',
-    fontSize: 17,
+    fontSize: 16,
   },
   onboardingProgress: {
     flexDirection: 'row',
