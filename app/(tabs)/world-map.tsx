@@ -6,7 +6,15 @@ import { theme } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Globe, Route, Calendar } from 'lucide-react-native';
 
-const TOTAL_WORLD_ROADS_KM = 64000000;
+const MILESTONES = [
+  { km: 100, label: '100 km' },
+  { km: 500, label: '500 km' },
+  { km: 1000, label: '1,000 km' },
+  { km: 5000, label: '5,000 km' },
+  { km: 10000, label: '10,000 km' },
+  { km: 50000, label: '50,000 km' },
+  { km: 100000, label: '100,000 km' },
+];
 
 type TimePeriod = 'daily' | 'weekly' | 'monthly' | 'all';
 
@@ -32,7 +40,7 @@ export default function WorldMapScreen() {
     }
   }, [trips, selectedPeriod]);
 
-  const { totalDistance, totalCoverage, routeColors } = useMemo(() => {
+  const { totalDistance, routeColors } = useMemo(() => {
     let distance = 0;
     const colors: string[] = [];
 
@@ -45,11 +53,8 @@ export default function WorldMapScreen() {
       }
     });
 
-    const coveragePercentage = (distance / TOTAL_WORLD_ROADS_KM) * 100;
-
     return {
       totalDistance: distance,
-      totalCoverage: coveragePercentage,
       routeColors: colors,
     };
   }, [filteredTrips]);
@@ -97,13 +102,27 @@ export default function WorldMapScreen() {
     };
   }, [filteredTrips]);
 
-  const formatCoverage = (percentage: number) => {
-    if (percentage === 0) return '0%';
-    if (percentage < 0.0000001) return `${percentage.toExponential(2)}%`;
-    if (percentage < 0.001) return `${percentage.toFixed(6)}%`;
-    if (percentage < 1) return `${percentage.toFixed(4)}%`;
-    return `${percentage.toFixed(2)}%`;
+  const getCurrentMilestone = (distance: number) => {
+    for (let i = MILESTONES.length - 1; i >= 0; i--) {
+      if (distance >= MILESTONES[i].km) {
+        return MILESTONES[i];
+      }
+    }
+    return null;
   };
+
+  const getNextMilestone = (distance: number) => {
+    for (const milestone of MILESTONES) {
+      if (distance < milestone.km) {
+        return milestone;
+      }
+    }
+    return MILESTONES[MILESTONES.length - 1];
+  };
+
+  const nextMilestone = getNextMilestone(totalDistance);
+  const currentMilestone = getCurrentMilestone(totalDistance);
+  const progressToNext = nextMilestone ? Math.min((totalDistance / nextMilestone.km) * 100, 100) : 100;
 
   const periods: { key: TimePeriod; label: string }[] = [
     { key: 'daily', label: 'Today' },
@@ -185,12 +204,19 @@ export default function WorldMapScreen() {
         <View style={styles.statCard}>
           <View style={styles.statHeader}>
             <Globe size={16} color={theme.colors.dark.accent} />
-            <Text style={styles.statLabel}>World Road Coverage</Text>
+            <Text style={styles.statLabel}>Distance Driven</Text>
           </View>
-          <Text style={styles.statValue}>{formatCoverage(totalCoverage)}</Text>
-          <Text style={styles.statSubtext}>
-            {totalDistance.toFixed(1)} km of ~64M km world roads
-          </Text>
+          <Text style={styles.statValue}>{totalDistance.toFixed(1)} km</Text>
+          <View style={styles.progressContainer}>
+            <View style={styles.progressBar}>
+              <View style={[styles.progressFill, { width: `${progressToNext}%` }]} />
+            </View>
+            <Text style={styles.statSubtext}>
+              {nextMilestone && totalDistance < nextMilestone.km 
+                ? `${(nextMilestone.km - totalDistance).toFixed(0)} km to ${nextMilestone.label}`
+                : currentMilestone ? `${currentMilestone.label} reached!` : 'Start driving!'}
+            </Text>
+          </View>
         </View>
 
         <View style={styles.statCard}>
@@ -334,5 +360,20 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: 12,
     color: theme.colors.dark.textSecondary,
+  },
+  progressContainer: {
+    marginTop: theme.spacing.xs,
+  },
+  progressBar: {
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginBottom: theme.spacing.xs,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: theme.colors.dark.accent,
+    borderRadius: 2,
   },
 });

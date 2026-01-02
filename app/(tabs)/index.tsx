@@ -79,7 +79,7 @@ export default function DriveScreen() {
   const displaySpeed = useKmh ? currentSpeed : currentSpeed * 0.621371;
   const speedUnit = useKmh ? 'km/h' : 'mph';
 
-  if (!isTracking && !showCarSelector) {
+  if (!isTracking) {
     return (
       <View style={styles.container}>
         <LinearGradient
