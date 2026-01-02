@@ -1,15 +1,17 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, View, Platform } from 'react-native';
+import { StyleSheet, Text, View, Platform, Pressable } from 'react-native';
 import MapView, { Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useTrip } from '@/contexts/TripContext';
 import { theme } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Globe, Route } from 'lucide-react-native';
+import { Globe, Route, ArrowLeft } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 
 const ESTIMATED_WORLD_ROADS_KM = 64000000;
 
 export default function WorldMapScreen() {
   const { trips } = useTrip();
+  const router = useRouter();
 
   const { routeColors, uniqueRoadsKm } = useMemo(() => {
     const colors: string[] = [];
@@ -91,6 +93,9 @@ export default function WorldMapScreen() {
     <View style={styles.container}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
+          <Pressable style={styles.backButton} onPress={() => router.back()}>
+            <ArrowLeft size={24} color={theme.colors.dark.text} />
+          </Pressable>
           <View style={styles.headerContent}>
             <Globe size={28} color={theme.colors.dark.accent} strokeWidth={2} />
             <View>
@@ -171,8 +176,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
     backgroundColor: theme.colors.dark.background,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.dark.card,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerContent: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.md,

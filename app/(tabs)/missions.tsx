@@ -25,6 +25,7 @@ export default function MissionsScreen() {
   const router = useRouter();
   const { trips } = useTrip();
   const [selectedPeriod, setSelectedPeriod] = useState<MissionPeriod>('daily');
+  const [claimedMissions, setClaimedMissions] = useState<Set<string>>(new Set());
 
   const timeUntilReset = useMemo(() => {
     const now = new Date();
@@ -214,6 +215,10 @@ export default function MissionsScreen() {
     return allMissions.filter(m => m.period === selectedPeriod);
   }, [trips, selectedPeriod]);
 
+  const handleClaimMission = (missionId: string) => {
+    setClaimedMissions(new Set([...claimedMissions, missionId]));
+  };
+
   const completedCount = missions.filter(m => m.completed).length;
   const totalRewards = missions.reduce((sum, m) => sum + (m.completed ? m.reward : 0), 0);
 
@@ -240,26 +245,41 @@ export default function MissionsScreen() {
 
   const renderMission = (mission: Mission) => {
     const progress = Math.min((mission.current / mission.target) * 100, 100);
+    const isClaimed = claimedMissions.has(mission.id);
 
     return (
-      <View
+      <Pressable
         key={mission.id}
         style={[
           styles.missionCard,
           mission.completed && styles.missionCardCompleted,
+          isClaimed && styles.missionCardClaimed,
         ]}
+        disabled={!mission.completed || isClaimed}
+        onPress={() => mission.completed && !isClaimed && handleClaimMission(mission.id)}
       >
         <View style={styles.missionHeader}>
-          <View style={styles.missionIconContainer}>
+          <View style={[
+            styles.missionIconContainer,
+            mission.completed && styles.missionIconContainerCompleted,
+          ]}>
             {getMissionIcon(mission.type)}
           </View>
           <View style={styles.missionInfo}>
             <Text style={styles.missionTitle}>{mission.title}</Text>
             <Text style={styles.missionDescription}>{mission.description}</Text>
           </View>
-          {mission.completed && (
-            <CheckCircle2 size={24} color={theme.colors.dark.success} fill={theme.colors.dark.success} />
-          )}
+          {isClaimed ? (
+            <View style={styles.claimedBadge}>
+              <CheckCircle2 size={20} color={theme.colors.dark.success} />
+              <Text style={styles.claimedText}>Claimed</Text>
+            </View>
+          ) : mission.completed ? (
+            <View style={styles.claimButton}>
+              <Trophy size={16} color="#FFFFFF" />
+              <Text style={styles.claimButtonText}>Claim</Text>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.missionProgress}>
@@ -285,19 +305,30 @@ export default function MissionsScreen() {
             </View>
           </View>
         </View>
-      </View>
+      </Pressable>
     );
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <Target size={32} color={theme.colors.dark.accent} />
-          <View style={styles.headerTextContainer}>
-            <Text style={styles.title}>Missions</Text>
-            <Text style={styles.subtitle}>Complete tasks to earn GPS Points</Text>
-          </View>
+      <LinearGradient
+        colors={['#0a0a0a', '#000000']}
+        style={styles.headerGradient}
+      >
+        <View style={styles.header}>
+          <View style={styles.headerTop}>
+            <View style={styles.headerIconWrapper}>
+              <LinearGradient
+                colors={['#0A84FF', '#0066CC']}
+                style={styles.headerIconGradient}
+              >
+                <Target size={28} color="#FFFFFF" />
+              </LinearGradient>
+            </View>
+            <View style={styles.headerTextContainer}>
+              <Text style={styles.title}>Missions</Text>
+              <Text style={styles.subtitle}>Complete challenges to earn rewards</Text>
+            </View>
           <Pressable 
             style={styles.gpStoreBadge}
             onPress={() => router.push('/gp-store')}
@@ -307,7 +338,8 @@ export default function MissionsScreen() {
             <ShoppingBag size={14} color="#FFD700" />
           </Pressable>
         </View>
-      </View>
+        </View>
+      </LinearGradient>
 
       <View style={styles.periodSelector}>
         <Pressable
@@ -360,7 +392,10 @@ export default function MissionsScreen() {
         </Pressable>
       </View>
 
-      <View style={styles.statsBar}>
+      <LinearGradient
+        colors={['rgba(10, 132, 255, 0.15)', 'rgba(10, 132, 255, 0.05)']}
+        style={styles.statsBar}
+      >
         <View style={styles.statItem}>
           <Text style={styles.statValue}>{completedCount}/{missions.length}</Text>
           <Text style={styles.statLabel}>Completed</Text>
@@ -376,7 +411,7 @@ export default function MissionsScreen() {
           <Text style={styles.statValue}>{timeUntilReset}</Text>
           <Text style={styles.statLabel}>Reset</Text>
         </View>
-      </View>
+      </LinearGradient>
 
       <ScrollView
         style={styles.scrollView}
@@ -384,21 +419,34 @@ export default function MissionsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            {selectedPeriod === 'daily' ? 'Today' : selectedPeriod === 'weekly' ? 'This Week' : 'This Month'}&apos;s Missions
-          </Text>
-          {missions.map(renderMission)}
+          <View style={styles.sectionHeaderWithIcon}>
+            <View style={styles.sectionIconCircle}>
+              <Zap size={16} color="#FFD700" fill="#FFD700" />
+            </View>
+            <Text style={styles.sectionTitle}>
+              {selectedPeriod === 'daily' ? 'Today' : selectedPeriod === 'weekly' ? 'This Week' : 'This Month'}&apos;s Missions
+            </Text>
+          </View>
+          <View style={styles.missionsGrid}>
+            {missions.map(renderMission)}
+          </View>
         </View>
 
-        <View style={styles.infoBox}>
+        <LinearGradient
+          colors={['rgba(10, 132, 255, 0.1)', 'rgba(10, 132, 255, 0.05)']}
+          style={styles.infoBox}
+        >
+          <View style={styles.infoIconContainer}>
+            <Trophy size={20} color={theme.colors.dark.accent} />
+          </View>
           <Text style={styles.infoTitle}>How Missions Work</Text>
           <Text style={styles.infoText}>
-            • Complete missions to earn bonus GPS Points{'\n'}
-            • Missions reset {selectedPeriod === 'daily' ? 'daily at midnight' : selectedPeriod === 'weekly' ? 'every Monday' : 'on the 1st of each month'}{'\n'}
-            • GPS Points can be used to unlock rewards{'\n'}
-            • Drive safe and explore new roads!
+            🎯 Complete missions to earn bonus GPS Points{'\n'}
+            ⏰ Missions reset {selectedPeriod === 'daily' ? 'daily at midnight' : selectedPeriod === 'weekly' ? 'every Monday' : 'on the 1st of each month'}{'\n'}
+            🎁 GPS Points can be used to unlock rewards{'\n'}
+            🚗 Drive safe and explore new roads!
           </Text>
-        </View>
+        </LinearGradient>
       </ScrollView>
     </SafeAreaView>
   );
@@ -409,6 +457,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.dark.background,
   },
+  headerGradient: {
+    paddingBottom: theme.spacing.md,
+  },
   header: {
     paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.lg,
@@ -418,6 +469,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.md,
+  },
+  headerIconWrapper: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  headerIconGradient: {
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTextContainer: {
     flex: 1,
@@ -442,11 +503,11 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: theme.spacing.md,
     paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.lg,
-    backgroundColor: theme.colors.dark.card,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: 'rgba(28, 28, 30, 0.6)',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: theme.colors.dark.border,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   periodTabActive: {
     backgroundColor: theme.colors.dark.accent,
@@ -462,11 +523,12 @@ const styles = StyleSheet.create({
   },
   statsBar: {
     flexDirection: 'row',
-    backgroundColor: theme.colors.dark.card,
     marginHorizontal: theme.spacing.lg,
     borderRadius: theme.borderRadius.xl,
     padding: theme.spacing.lg,
     marginBottom: theme.spacing.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(10, 132, 255, 0.3)',
   },
   statItem: {
     flex: 1,
@@ -496,23 +558,44 @@ const styles = StyleSheet.create({
   section: {
     paddingHorizontal: theme.spacing.lg,
   },
+  sectionHeaderWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.lg,
+  },
+  sectionIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 215, 0, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   sectionTitle: {
     ...theme.typography.title3,
     color: theme.colors.dark.text,
-    fontWeight: '600' as const,
-    marginBottom: theme.spacing.md,
+    fontWeight: '700' as const,
+  },
+  missionsGrid: {
+    gap: theme.spacing.md,
   },
   missionCard: {
     backgroundColor: theme.colors.dark.card,
     borderRadius: theme.borderRadius.xl,
     padding: theme.spacing.lg,
     marginBottom: theme.spacing.md,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: theme.colors.dark.border,
   },
   missionCardCompleted: {
     borderColor: theme.colors.dark.success,
     backgroundColor: 'rgba(48, 209, 88, 0.1)',
+  },
+  missionCardClaimed: {
+    opacity: 0.6,
+    borderColor: theme.colors.dark.border,
+    backgroundColor: 'rgba(28, 28, 30, 0.4)',
   },
   missionHeader: {
     flexDirection: 'row',
@@ -521,12 +604,15 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   missionIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: theme.colors.dark.cardElevated,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  missionIconContainerCompleted: {
+    backgroundColor: 'rgba(48, 209, 88, 0.2)',
   },
   missionInfo: {
     flex: 1,
@@ -568,35 +654,75 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(10, 132, 255, 0.2)',
+    backgroundColor: 'rgba(255, 215, 0, 0.2)',
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: 4,
     borderRadius: theme.borderRadius.full,
   },
   rewardText: {
     ...theme.typography.caption1,
-    color: theme.colors.dark.accent,
+    color: '#FFD700',
+    fontWeight: '700' as const,
+  },
+  claimButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    backgroundColor: theme.colors.dark.success,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.full,
+  },
+  claimButtonText: {
+    ...theme.typography.callout,
+    color: '#FFFFFF',
+    fontWeight: '700' as const,
+    fontSize: 14,
+  },
+  claimedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+  },
+  claimedText: {
+    ...theme.typography.callout,
+    color: theme.colors.dark.textSecondary,
     fontWeight: '600' as const,
+    fontSize: 12,
   },
   infoBox: {
     marginTop: theme.spacing.xl,
     marginHorizontal: theme.spacing.lg,
-    padding: theme.spacing.lg,
-    backgroundColor: theme.colors.dark.card,
+    padding: theme.spacing.xl,
     borderRadius: theme.borderRadius.xl,
-    borderLeftWidth: 3,
-    borderLeftColor: theme.colors.dark.accent,
+    borderWidth: 1,
+    borderColor: 'rgba(10, 132, 255, 0.3)',
+    alignItems: 'center',
+  },
+  infoIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(10, 132, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: theme.spacing.md,
   },
   infoTitle: {
     ...theme.typography.headline,
     color: theme.colors.dark.text,
-    fontWeight: '600' as const,
-    marginBottom: theme.spacing.sm,
+    fontWeight: '700' as const,
+    marginBottom: theme.spacing.md,
+    textAlign: 'center',
+    fontSize: 18,
   },
   infoText: {
     ...theme.typography.subheadline,
     color: theme.colors.dark.textSecondary,
-    lineHeight: 22,
+    lineHeight: 24,
+    textAlign: 'center',
   },
   gpStoreBadge: {
     flexDirection: 'row',

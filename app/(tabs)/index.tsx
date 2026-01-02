@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { StyleSheet, Text, View, Pressable, Platform, ScrollView, Modal, Share, Animated } from 'react-native';
 import MapView, { Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import { Play, Square, ChevronRight, Target, TrendingUp, Share2, Map, Trophy, Route as RouteIcon, Navigation, X, Zap, ShoppingBag } from 'lucide-react-native';
+import { Play, Square, ChevronRight, Target, TrendingUp, Share2, Map, Trophy, Route as RouteIcon, X, Zap, ShoppingBag } from 'lucide-react-native';
 import { useTrip } from '@/contexts/TripContext';
 import { useUser } from '@/contexts/UserContext';
 import { theme } from '@/constants/theme';
@@ -31,6 +31,7 @@ export default function DriveScreen() {
   const [showCarSelector, setShowCarSelector] = useState(false);
   const [displayDuration, setDisplayDuration] = useState(0);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(0);
   const durationInterval = useRef<number | null>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -190,9 +191,42 @@ export default function DriveScreen() {
       useNativeDriver: true,
     }).start(() => {
       setShowOnboarding(false);
+      setOnboardingStep(0);
       markOnboardingAsSeen();
     });
   };
+
+  const handleNextOnboarding = () => {
+    if (onboardingStep < 2) {
+      setOnboardingStep(onboardingStep + 1);
+    } else {
+      handleCloseOnboarding();
+    }
+  };
+
+  const onboardingSteps = [
+    {
+      icon: RouteIcon,
+      iconColor: '#30D158',
+      title: 'Track Your Journeys',
+      description: 'Record every kilometer and explore new roads around the world. Our GPS tracking captures your adventures in real-time.',
+    },
+    {
+      icon: Target,
+      iconColor: '#FF9F0A',
+      title: 'Complete Missions',
+      description: 'Earn GPS Points by completing daily, weekly, and monthly challenges. Unlock rewards and level up your profile.',
+    },
+    {
+      icon: Trophy,
+      iconColor: '#FFD700',
+      title: 'Compete Globally',
+      description: 'Climb leaderboards and see how you rank against drivers worldwide. Discover who drives the most roads.',
+    },
+  ];
+
+  const currentStep = onboardingSteps[onboardingStep];
+  const StepIcon = currentStep?.icon;
 
   if (!isTracking) {
     return (
@@ -203,11 +237,7 @@ export default function DriveScreen() {
         >
           <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
             <View style={styles.contentWrapper}>
-              <ScrollView 
-                style={styles.preStartScroll}
-                contentContainerStyle={styles.preStartContent}
-                showsVerticalScrollIndicator={false}
-              >
+              <View style={styles.topSection}>
                 <View style={styles.greetingSection}>
                   <Text style={styles.greeting}>
                     {getGreeting()}{userProfile ? `, ${userProfile.username}` : ''}
@@ -221,6 +251,40 @@ export default function DriveScreen() {
                     <ShoppingBag size={14} color="#FFD700" />
                   </Pressable>
                 </View>
+
+                {userProfile && userProfile.cars.length > 0 && (
+                  <View style={styles.carSelectorTop}>
+                    <Text style={styles.carSelectorLabel}>Select Your Car</Text>
+                    {selectedCar ? (
+                      <Pressable 
+                        style={styles.selectedCarCardTop}
+                        onPress={() => setShowCarSelector(true)}
+                      >
+                        <Text style={styles.selectedCarIconTop}>{selectedCar.icon}</Text>
+                        <View style={styles.selectedCarInfoTop}>
+                          <Text style={styles.selectedCarBrandTop}>{selectedCar.brand}</Text>
+                          <Text style={styles.selectedCarModelTop}>{selectedCar.model} • {selectedCar.year}</Text>
+                        </View>
+                        <ChevronRight size={20} color={theme.colors.dark.textSecondary} />
+                      </Pressable>
+                    ) : (
+                      <Pressable 
+                        style={styles.selectCarPromptTop}
+                        onPress={() => setShowCarSelector(true)}
+                      >
+                        <Text style={styles.selectCarTextTop}>Tap to select a car</Text>
+                        <ChevronRight size={20} color={theme.colors.dark.accent} />
+                      </Pressable>
+                    )}
+                  </View>
+                )}
+              </View>
+
+              <ScrollView 
+                style={styles.preStartScroll}
+                contentContainerStyle={styles.preStartContent}
+                showsVerticalScrollIndicator={false}
+              >
 
                 <View style={styles.missionCard}>
                 <View style={styles.missionHeader}>
@@ -290,30 +354,6 @@ export default function DriveScreen() {
                   <Text style={styles.roadCoverageTeaserStat}>📍 {stats.totalDistance.toFixed(0)} km explored</Text>
                 </View>
               </View>
-
-              {selectedCar && (
-                <Pressable 
-                  style={styles.selectedCarCard}
-                  onPress={() => setShowCarSelector(true)}
-                >
-                  <Text style={styles.selectedCarIcon}>{selectedCar.icon}</Text>
-                  <View style={styles.selectedCarInfo}>
-                    <Text style={styles.selectedCarBrand}>{selectedCar.brand}</Text>
-                    <Text style={styles.selectedCarModel}>{selectedCar.model} • {selectedCar.year}</Text>
-                  </View>
-                  <ChevronRight size={20} color={theme.colors.dark.textSecondary} />
-                </Pressable>
-              )}
-
-                {userProfile && userProfile.cars.length > 0 && !selectedCar && (
-                  <Pressable 
-                    style={styles.selectCarPrompt}
-                    onPress={() => setShowCarSelector(true)}
-                  >
-                    <Text style={styles.selectCarText}>Select your car</Text>
-                    <ChevronRight size={20} color={theme.colors.dark.accent} />
-                  </Pressable>
-                )}
               </ScrollView>
 
               <View style={styles.bottomActions}>
@@ -328,7 +368,7 @@ export default function DriveScreen() {
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                   >
-                    <Play size={28} color="#FFFFFF" fill="#FFFFFF" />
+                    <Play size={20} color="#FFFFFF" fill="#FFFFFF" />
                     <Text style={styles.startDriveText}>Start Drive</Text>
                   </LinearGradient>
                 </Pressable>
@@ -396,53 +436,37 @@ export default function DriveScreen() {
               
               <View style={styles.onboardingHeader}>
                 <View style={styles.onboardingIconContainer}>
-                  <Navigation size={32} color="#0A84FF" />
+                  {StepIcon && <StepIcon size={40} color={currentStep.iconColor} />}
                 </View>
-                <Text style={styles.onboardingTitle}>Welcome to RoadQuest!</Text>
-                <Text style={styles.onboardingSubtitle}>Turn every drive into an adventure</Text>
+                <Text style={styles.onboardingTitle}>
+                  {onboardingStep === 0 ? 'Welcome to RoadQuest!' : currentStep.title}
+                </Text>
+                {onboardingStep === 0 && (
+                  <Text style={styles.onboardingSubtitle}>Turn every drive into an adventure</Text>
+                )}
               </View>
 
               <View style={styles.onboardingFeatures}>
-                <View style={styles.featureItem}>
-                  <View style={styles.featureIcon}>
-                    <RouteIcon size={24} color="#30D158" />
-                  </View>
-                  <View style={styles.featureContent}>
-                    <Text style={styles.featureTitle}>Track Your Journeys</Text>
-                    <Text style={styles.featureDescription}>
-                      Record every kilometer and explore new roads around the world
-                    </Text>
-                  </View>
-                </View>
+                <Text style={styles.featureDescription}>
+                  {currentStep.description}
+                </Text>
+              </View>
 
-                <View style={styles.featureItem}>
-                  <View style={styles.featureIcon}>
-                    <Target size={24} color="#FF9F0A" />
-                  </View>
-                  <View style={styles.featureContent}>
-                    <Text style={styles.featureTitle}>Complete Missions</Text>
-                    <Text style={styles.featureDescription}>
-                      Earn GPS Points by completing daily, weekly, and monthly challenges
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.featureItem}>
-                  <View style={styles.featureIcon}>
-                    <Trophy size={24} color="#FFD700" />
-                  </View>
-                  <View style={styles.featureContent}>
-                    <Text style={styles.featureTitle}>Compete Globally</Text>
-                    <Text style={styles.featureDescription}>
-                      Climb leaderboards and see how you rank against drivers worldwide
-                    </Text>
-                  </View>
-                </View>
+              <View style={styles.onboardingProgress}>
+                {onboardingSteps.map((_, index) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.progressDot,
+                      index === onboardingStep && styles.progressDotActive,
+                    ]}
+                  />
+                ))}
               </View>
 
               <Pressable
                 style={styles.onboardingButton}
-                onPress={handleCloseOnboarding}
+                onPress={handleNextOnboarding}
               >
                 <LinearGradient
                   colors={['#0A84FF', '#0066CC']}
@@ -450,7 +474,9 @@ export default function DriveScreen() {
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                 >
-                  <Text style={styles.onboardingButtonText}>Get Started</Text>
+                  <Text style={styles.onboardingButtonText}>
+                    {onboardingStep < 2 ? 'Next' : 'Get Started'}
+                  </Text>
                 </LinearGradient>
               </Pressable>
             </View>
@@ -564,14 +590,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   preStartContent: {
-    paddingTop: theme.spacing.md,
     paddingBottom: theme.spacing.xl,
+  },
+  topSection: {
     paddingHorizontal: theme.spacing.xl,
+    paddingTop: theme.spacing.md,
   },
   greetingSection: {
     alignItems: 'center',
-    marginBottom: theme.spacing.sm,
-    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
     gap: theme.spacing.md,
   },
   greeting: {
@@ -598,6 +625,58 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     fontSize: 16,
   },
+  carSelectorTop: {
+    marginBottom: theme.spacing.lg,
+  },
+  carSelectorLabel: {
+    ...theme.typography.caption1,
+    color: theme.colors.dark.textSecondary,
+    textTransform: 'uppercase',
+    fontWeight: '600' as const,
+    letterSpacing: 0.5,
+    marginBottom: theme.spacing.sm,
+  },
+  selectedCarCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(28, 28, 30, 0.8)',
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.md,
+    gap: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.dark.border,
+  },
+  selectedCarIconTop: {
+    fontSize: 32,
+  },
+  selectedCarInfoTop: {
+    flex: 1,
+  },
+  selectedCarBrandTop: {
+    ...theme.typography.callout,
+    color: theme.colors.dark.text,
+    fontWeight: '600' as const,
+  },
+  selectedCarModelTop: {
+    ...theme.typography.caption1,
+    color: theme.colors.dark.textSecondary,
+    marginTop: 2,
+  },
+  selectCarPromptTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(10, 132, 255, 0.1)',
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(10, 132, 255, 0.3)',
+  },
+  selectCarTextTop: {
+    ...theme.typography.callout,
+    color: theme.colors.dark.accent,
+    fontWeight: '600' as const,
+  },
   missionCard: {
     backgroundColor: 'rgba(10, 132, 255, 0.1)',
     borderRadius: theme.borderRadius.xl,
@@ -605,6 +684,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(10, 132, 255, 0.3)',
     marginBottom: theme.spacing.md,
+    marginHorizontal: theme.spacing.xl,
   },
   missionHeader: {
     flexDirection: 'row',
@@ -656,6 +736,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.dark.border,
     marginBottom: theme.spacing.md,
+    marginHorizontal: theme.spacing.xl,
   },
   lastDriveHeader: {
     flexDirection: 'row',
@@ -700,6 +781,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(48, 209, 88, 0.3)',
     marginBottom: theme.spacing.md,
+    marginHorizontal: theme.spacing.xl,
   },
   roadCoverageTeaserHeader: {
     flexDirection: 'row',
@@ -728,75 +810,32 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     fontSize: 14,
   },
-  selectedCarCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(28, 28, 30, 0.8)',
-    borderRadius: theme.borderRadius.xl,
-    padding: theme.spacing.lg,
-    gap: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.dark.border,
-    marginBottom: theme.spacing.md,
-  },
-  selectedCarIcon: {
-    fontSize: 40,
-  },
-  selectedCarInfo: {
-    flex: 1,
-  },
-  selectedCarBrand: {
-    ...theme.typography.headline,
-    color: theme.colors.dark.text,
-    fontWeight: '600' as const,
-  },
-  selectedCarModel: {
-    ...theme.typography.subheadline,
-    color: theme.colors.dark.textSecondary,
-    marginTop: theme.spacing.xs,
-  },
-  selectCarPrompt: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(10, 132, 255, 0.1)',
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(10, 132, 255, 0.3)',
-    marginBottom: theme.spacing.md,
-  },
-  selectCarText: {
-    ...theme.typography.headline,
-    color: theme.colors.dark.accent,
-    fontWeight: '600' as const,
-  },
   bottomActions: {
     paddingHorizontal: theme.spacing.xl,
     paddingBottom: theme.spacing.lg,
-    paddingTop: theme.spacing.md,
+    paddingTop: theme.spacing.sm,
   },
   startDriveButton: {
-    borderRadius: theme.borderRadius.xl,
+    borderRadius: theme.borderRadius.lg,
     overflow: 'hidden',
-    elevation: 8,
+    elevation: 4,
     shadowColor: '#0A84FF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
   },
   startButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: theme.spacing.md,
-    paddingVertical: theme.spacing.xl,
+    gap: theme.spacing.sm,
+    paddingVertical: theme.spacing.md,
   },
   startDriveText: {
-    ...theme.typography.title3,
+    ...theme.typography.headline,
     color: '#FFFFFF',
     fontWeight: '700' as const,
-    fontSize: 24,
+    fontSize: 17,
   },
   permissionText: {
     ...theme.typography.subheadline,
@@ -1043,35 +1082,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   onboardingFeatures: {
-    gap: theme.spacing.lg,
-    marginBottom: theme.spacing.xxl,
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: theme.spacing.md,
-  },
-  featureIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  featureContent: {
     flex: 1,
-  },
-  featureTitle: {
-    ...theme.typography.headline,
-    color: theme.colors.dark.text,
-    fontWeight: '600' as const,
-    marginBottom: theme.spacing.xs,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: theme.spacing.xxl,
+    paddingHorizontal: theme.spacing.md,
   },
   featureDescription: {
-    ...theme.typography.subheadline,
+    ...theme.typography.body,
     color: theme.colors.dark.textSecondary,
-    lineHeight: 20,
+    lineHeight: 24,
+    textAlign: 'center',
+    fontSize: 17,
+  },
+  onboardingProgress: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.xl,
+  },
+  progressDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  progressDotActive: {
+    backgroundColor: theme.colors.dark.accent,
+    width: 24,
   },
   onboardingButton: {
     borderRadius: theme.borderRadius.xl,

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { StyleSheet, Text, View, ScrollView, Pressable, Alert, Platform } from 'react-native';
 import { router } from 'expo-router';
-import { Trash2, ChevronRight, TrendingUp, Route, Clock, Zap, Car as CarIcon, BarChart3 } from 'lucide-react-native';
+import { Trash2, ChevronRight, TrendingUp, Route, Clock, Zap, Car as CarIcon, BarChart3, Globe } from 'lucide-react-native';
 import { useTrip } from '@/contexts/TripContext';
 import { useUser } from '@/contexts/UserContext';
 import { theme } from '@/constants/theme';
@@ -127,6 +127,18 @@ export default function HistoryScreen() {
             <Text style={styles.statsButtonText}>Lifetime Stats</Text>
           </Pressable>
         </View>
+
+        <Pressable 
+          style={styles.worldMapButton}
+          onPress={() => router.push('/(tabs)/world-map')}
+        >
+          <Globe size={20} color={theme.colors.dark.success} />
+          <View style={styles.worldMapButtonContent}>
+            <Text style={styles.worldMapButtonTitle}>World Coverage Map</Text>
+            <Text style={styles.worldMapButtonSubtitle}>View your explored roads</Text>
+          </View>
+          <ChevronRight size={20} color={theme.colors.dark.textSecondary} />
+        </Pressable>
 
         <ScrollView
           horizontal
@@ -309,6 +321,31 @@ const styles = StyleSheet.create({
     color: theme.colors.dark.accent,
     fontWeight: '600' as const,
     fontSize: 14,
+  },
+  worldMapButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(48, 209, 88, 0.1)',
+    marginHorizontal: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
+    gap: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(48, 209, 88, 0.3)',
+  },
+  worldMapButtonContent: {
+    flex: 1,
+  },
+  worldMapButtonTitle: {
+    ...theme.typography.callout,
+    color: theme.colors.dark.text,
+    fontWeight: '600' as const,
+  },
+  worldMapButtonSubtitle: {
+    ...theme.typography.caption1,
+    color: theme.colors.dark.textSecondary,
+    marginTop: 2,
   },
   title: {
     ...theme.typography.title1,
