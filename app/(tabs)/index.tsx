@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { StyleSheet, Text, View, Pressable, Platform, ScrollView, Modal, Share, Animated } from 'react-native';
 import MapView, { Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import { Play, Square, ChevronRight, Target, TrendingUp, Share2, Map, Trophy, Route as RouteIcon, Navigation, X } from 'lucide-react-native';
+import { Play, Square, ChevronRight, Target, TrendingUp, Share2, Map, Trophy, Route as RouteIcon, Navigation, X, Zap } from 'lucide-react-native';
 import { useTrip } from '@/contexts/TripContext';
 import { useUser } from '@/contexts/UserContext';
 import { theme } from '@/constants/theme';
@@ -35,6 +35,10 @@ export default function DriveScreen() {
   const lastTrip = useMemo(() => {
     if (trips.length === 0) return null;
     return trips[0];
+  }, [trips]);
+
+  const totalGPSPoints = useMemo(() => {
+    return Math.floor(trips.reduce((sum, trip) => sum + trip.distance, 0));
   }, [trips]);
 
   useEffect(() => {
@@ -206,6 +210,10 @@ export default function DriveScreen() {
                   <Text style={styles.greeting}>
                     {getGreeting()}{userProfile ? `, ${userProfile.username}` : ''}
                   </Text>
+                  <View style={styles.gpsPointsBadge}>
+                    <Zap size={16} color="#FFD700" fill="#FFD700" />
+                    <Text style={styles.gpsPointsText}>{totalGPSPoints} GPS Points</Text>
+                  </View>
                 </View>
 
                 <View style={styles.missionCard}>
@@ -558,6 +566,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: theme.spacing.sm,
     marginTop: theme.spacing.md,
+    gap: theme.spacing.md,
   },
   greeting: {
     ...theme.typography.title2,
@@ -565,6 +574,23 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     textAlign: 'center',
     fontSize: 28,
+  },
+  gpsPointsBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    backgroundColor: 'rgba(255, 215, 0, 0.15)',
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.3)',
+  },
+  gpsPointsText: {
+    ...theme.typography.callout,
+    color: '#FFD700',
+    fontWeight: '700' as const,
+    fontSize: 16,
   },
   missionCard: {
     backgroundColor: 'rgba(10, 132, 255, 0.1)',

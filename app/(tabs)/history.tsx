@@ -123,7 +123,8 @@ export default function HistoryScreen() {
             style={styles.statsButton}
             onPress={() => router.push('/(tabs)/stats')}
           >
-            <BarChart3 size={24} color={theme.colors.dark.accent} />
+            <BarChart3 size={18} color={theme.colors.dark.accent} />
+            <Text style={styles.statsButtonText}>Lifetime Stats</Text>
           </Pressable>
         </View>
 
@@ -293,14 +294,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statsButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(10, 132, 255, 0.15)',
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: theme.spacing.xs,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: 'rgba(10, 132, 255, 0.15)',
     borderWidth: 1,
     borderColor: 'rgba(10, 132, 255, 0.3)',
+  },
+  statsButtonText: {
+    ...theme.typography.callout,
+    color: theme.colors.dark.accent,
+    fontWeight: '600' as const,
+    fontSize: 14,
   },
   title: {
     ...theme.typography.title1,

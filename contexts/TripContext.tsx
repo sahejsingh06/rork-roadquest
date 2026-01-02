@@ -7,8 +7,9 @@ import type { Trip, LocationPoint, TripStats } from '@/types/trip';
 
 const TRIPS_STORAGE_KEY = '@roadquest_trips';
 const STATS_STORAGE_KEY = '@roadquest_stats';
-const PAUSE_THRESHOLD_SPEED = 5 / 3.6;
+const PAUSE_THRESHOLD_SPEED = 7 / 3.6;
 const PAUSE_THRESHOLD_TIME = 10 * 60 * 1000;
+const WARNING_TIME = 10 * 60 * 1000;
 
 export const [TripProvider, useTrip] = createContextHook(() => {
   const [isTracking, setIsTracking] = useState(false);
@@ -30,6 +31,7 @@ export const [TripProvider, useTrip] = createContextHook(() => {
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
   const pauseTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastLowSpeedTime = useRef<number | null>(null);
+  const hasShownWarning = useRef<boolean>(false);
   const tripsRef = useRef<Trip[]>(trips);
   const statsRef = useRef<TripStats>(stats);
 
@@ -228,11 +230,51 @@ export const [TripProvider, useTrip] = createContextHook(() => {
             if (speedKmh < PAUSE_THRESHOLD_SPEED) {
               if (lastLowSpeedTime.current === null) {
                 lastLowSpeedTime.current = Date.now();
-              } else if (Date.now() - lastLowSpeedTime.current >= PAUSE_THRESHOLD_TIME && !prev.isPaused) {
-                return { ...prev, isPaused: true };
+                hasShownWarning.current = false;
+              } else {
+                const lowSpeedDuration = Date.now() - lastLowSpeedTime.current;
+                
+                if (lowSpeedDuration >= WARNING_TIME && !hasShownWarning.current) {
+                  hasShownWarning.current = true;
+                  
+                  if (Platform.OS === 'web') {
+                    const userResponse = confirm('Your speed has been under 7 km/h for 10 minutes. Are you still driving?');
+                    if (!userResponse) {
+                      console.log('User confirmed they are not driving');
+                    }
+                  } else {
+                    Alert.alert(
+                      'Still Driving?',
+                      'Your speed has been under 7 km/h for 10 minutes. Are you still driving?',
+                      [
+                        {
+                          text: 'Yes, Continue',
+                          onPress: () => {
+                            lastLowSpeedTime.current = Date.now();
+                            hasShownWarning.current = false;
+                          },
+                          style: 'default',
+                        },
+                        {
+                          text: 'No, End Drive',
+                          onPress: () => {
+                            console.log('User ending drive from warning');
+                          },
+                          style: 'destructive',
+                        },
+                      ],
+                      { cancelable: false }
+                    );
+                  }
+                }
+                
+                if (lowSpeedDuration >= PAUSE_THRESHOLD_TIME && !prev.isPaused) {
+                  return { ...prev, isPaused: true };
+                }
               }
             } else {
               lastLowSpeedTime.current = null;
+              hasShownWarning.current = false;
               if (prev.isPaused) {
                 return { ...prev, isPaused: false };
               }
@@ -287,6 +329,7 @@ export const [TripProvider, useTrip] = createContextHook(() => {
     }
 
     lastLowSpeedTime.current = null;
+    hasShownWarning.current = false;
 
     const tripToEnd = currentTrip;
     
