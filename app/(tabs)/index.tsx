@@ -211,7 +211,11 @@ export default function DriveScreen() {
 
       <SafeAreaView edges={['top']} style={styles.headerSafeArea}>
         <View style={styles.header}>
-          <View style={styles.headerLeft}>
+          <Pressable onPress={toggleUnit} style={styles.speedBadge}>
+            <Text style={styles.speedBadgeValue}>{Math.round(displaySpeed)}</Text>
+            <Text style={styles.speedBadgeUnit}>{speedUnit}</Text>
+          </Pressable>
+          <View style={styles.headerRight}>
             {selectedCar && (
               <View style={styles.headerCar}>
                 <Text style={styles.headerCarIcon}>{selectedCar.icon}</Text>
@@ -219,19 +223,10 @@ export default function DriveScreen() {
               </View>
             )}
           </View>
-          <Pressable onPress={toggleUnit} style={styles.unitToggle}>
-            <Text style={styles.unitText}>{speedUnit}</Text>
-          </Pressable>
         </View>
       </SafeAreaView>
 
       <View style={styles.overlay}>
-        <View style={styles.speedContainer}>
-          <Text style={styles.speed}>
-            {Math.round(displaySpeed)}
-          </Text>
-          <Text style={styles.speedUnit}>{speedUnit}</Text>
-        </View>
 
         {isTracking && currentTrip && (
           <View style={styles.statsRow}>
@@ -393,8 +388,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
   },
-  headerLeft: {
-    flex: 1,
+  speedBadge: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.lg,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(10, 132, 255, 0.4)',
+  },
+  speedBadgeValue: {
+    fontSize: 28,
+    color: theme.colors.dark.accent,
+    fontWeight: '700' as const,
+  },
+  speedBadgeUnit: {
+    fontSize: 12,
+    color: theme.colors.dark.textSecondary,
+    fontWeight: '600' as const,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
   },
   headerCar: {
     flexDirection: 'row',
@@ -413,45 +431,12 @@ const styles = StyleSheet.create({
     color: theme.colors.dark.text,
     fontWeight: '600' as const,
   },
-  unitToggle: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    backgroundColor: 'rgba(28, 28, 30, 0.8)',
-    borderRadius: theme.borderRadius.md,
-  },
-  unitText: {
-    ...theme.typography.callout,
-    color: theme.colors.dark.accent,
-    fontWeight: '600' as const,
-  },
   overlay: {
     position: 'absolute',
-    top: 100,
+    top: 120,
     left: 0,
     right: 0,
     paddingHorizontal: theme.spacing.lg,
-  },
-  speedContainer: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
-    borderRadius: theme.borderRadius.lg,
-    alignSelf: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(10, 132, 255, 0.3)',
-  },
-  speed: {
-    fontSize: 56,
-    color: theme.colors.dark.accent,
-    fontWeight: '700' as const,
-    letterSpacing: -2,
-  },
-  speedUnit: {
-    ...theme.typography.subheadline,
-    color: theme.colors.dark.textSecondary,
-    marginTop: -theme.spacing.xs,
-    fontWeight: '600' as const,
   },
   statsRow: {
     flexDirection: 'row',

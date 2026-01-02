@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View, ScrollView, Dimensions, Platform } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import MapView, { Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import { Calendar, Clock, TrendingUp, Zap, MapPin } from 'lucide-react-native';
+import MapView, { Polyline, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { Calendar, Clock, Zap, Fuel, Route, Gauge, Navigation } from 'lucide-react-native';
 import { useTrip } from '@/contexts/TripContext';
 import { theme } from '@/constants/theme';
 
@@ -53,6 +53,15 @@ export default function TripSummaryScreen() {
 
   const maxChartSpeed = Math.max(...speedData.map(d => d.y), 1);
 
+  const estimatedFuel = useMemo(() => {
+    if (!trip) return 0;
+    const avgConsumption = 8;
+    return (trip.distance / 100) * avgConsumption;
+  }, [trip]);
+
+  const startLocation = trip?.locations[0];
+  const endLocation = trip?.locations[trip?.locations.length - 1];
+
   if (!trip) {
     return (
       <View style={styles.container}>
@@ -93,36 +102,6 @@ export default function TripSummaryScreen() {
     return `${seconds}s`;
   };
 
-  const mapStyle = [
-    {
-      elementType: 'geometry',
-      stylers: [{ color: '#1C1C1E' }],
-    },
-    {
-      elementType: 'labels.text.fill',
-      stylers: [{ color: '#8E8E93' }],
-    },
-    {
-      elementType: 'labels.text.stroke',
-      stylers: [{ color: '#000000' }],
-    },
-    {
-      featureType: 'road',
-      elementType: 'geometry',
-      stylers: [{ color: '#2C2C2E' }],
-    },
-    {
-      featureType: 'road',
-      elementType: 'geometry.stroke',
-      stylers: [{ color: '#1C1C1E' }],
-    },
-    {
-      featureType: 'water',
-      elementType: 'geometry',
-      stylers: [{ color: '#0A0A0A' }],
-    },
-  ];
-
   return (
     <View style={styles.container}>
       <ScrollView 
@@ -134,10 +113,10 @@ export default function TripSummaryScreen() {
           <MapView
             style={styles.map}
             region={region}
-            provider={Platform.OS === 'web' ? undefined : PROVIDER_GOOGLE}
-            customMapStyle={mapStyle}
-            scrollEnabled={false}
-            zoomEnabled={false}
+            provider={Platform.OS === 'ios' ? undefined : PROVIDER_GOOGLE}
+            mapType="standard"
+            scrollEnabled={true}
+            zoomEnabled={true}
             rotateEnabled={false}
             pitchEnabled={false}
           >
@@ -149,6 +128,26 @@ export default function TripSummaryScreen() {
                 }))}
                 strokeColor={theme.colors.dark.accent}
                 strokeWidth={4}
+              />
+            )}
+            {startLocation && (
+              <Marker
+                coordinate={{
+                  latitude: startLocation.latitude,
+                  longitude: startLocation.longitude,
+                }}
+                title="Start"
+                pinColor="#34C759"
+              />
+            )}
+            {endLocation && trip.locations.length > 1 && (
+              <Marker
+                coordinate={{
+                  latitude: endLocation.latitude,
+                  longitude: endLocation.longitude,
+                }}
+                title="End"
+                pinColor="#FF3B30"
               />
             )}
           </MapView>
@@ -169,7 +168,7 @@ export default function TripSummaryScreen() {
           <View style={styles.statsGrid}>
             <View style={styles.statCard}>
               <View style={styles.statIconContainer}>
-                <MapPin size={20} color={theme.colors.dark.accent} />
+                <Route size={20} color={theme.colors.dark.accent} />
               </View>
               <Text style={styles.statValue}>{trip.distance.toFixed(2)}</Text>
               <Text style={styles.statLabel}>Distance (km)</Text>
@@ -185,7 +184,7 @@ export default function TripSummaryScreen() {
 
             <View style={styles.statCard}>
               <View style={styles.statIconContainer}>
-                <TrendingUp size={20} color={theme.colors.dark.warning} />
+                <Gauge size={20} color={theme.colors.dark.warning} />
               </View>
               <Text style={styles.statValue}>
                 {Math.round(useKmh ? trip.avgSpeed : trip.avgSpeed * 0.621371)}
@@ -195,12 +194,31 @@ export default function TripSummaryScreen() {
 
             <View style={styles.statCard}>
               <View style={styles.statIconContainer}>
-                <Zap size={20} color={theme.colors.dark.accent} />
+                <Zap size={20} color={theme.colors.dark.danger} />
               </View>
               <Text style={styles.statValue}>
                 {Math.round(useKmh ? trip.maxSpeed : trip.maxSpeed * 0.621371)}
               </Text>
               <Text style={styles.statLabel}>Max Speed ({useKmh ? 'km/h' : 'mph'})</Text>
+            </View>
+          </View>
+
+          <View style={styles.additionalStats}>
+            <View style={styles.additionalStatRow}>
+              <View style={styles.additionalStatItem}>
+                <Fuel size={18} color={theme.colors.dark.textSecondary} />
+                <View style={styles.additionalStatText}>
+                  <Text style={styles.additionalStatValue}>{estimatedFuel.toFixed(1)} L</Text>
+                  <Text style={styles.additionalStatLabel}>Est. Fuel Used</Text>
+                </View>
+              </View>
+              <View style={styles.additionalStatItem}>
+                <Navigation size={18} color={theme.colors.dark.textSecondary} />
+                <View style={styles.additionalStatText}>
+                  <Text style={styles.additionalStatValue}>{trip.locations.length}</Text>
+                  <Text style={styles.additionalStatLabel}>GPS Points</Text>
+                </View>
+              </View>
             </View>
           </View>
 
@@ -310,6 +328,33 @@ const styles = StyleSheet.create({
     color: theme.colors.dark.textSecondary,
     textAlign: 'center',
     marginTop: theme.spacing.xs,
+  },
+  additionalStats: {
+    marginTop: theme.spacing.lg,
+    backgroundColor: theme.colors.dark.card,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+  },
+  additionalStatRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  additionalStatItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  additionalStatText: {
+    alignItems: 'flex-start',
+  },
+  additionalStatValue: {
+    ...theme.typography.headline,
+    color: theme.colors.dark.text,
+    fontWeight: '600' as const,
+  },
+  additionalStatLabel: {
+    ...theme.typography.caption1,
+    color: theme.colors.dark.textSecondary,
   },
   chartSection: {
     marginTop: theme.spacing.xl,

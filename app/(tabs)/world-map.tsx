@@ -1,47 +1,71 @@
-import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import MapView, { Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
+import React, { useMemo, useState } from 'react';
+import { StyleSheet, Text, View, Pressable, Platform } from 'react-native';
+import MapView, { Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useTrip } from '@/contexts/TripContext';
 import { theme } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Globe } from 'lucide-react-native';
+import { Globe, Route, Calendar } from 'lucide-react-native';
 
-const TOTAL_ROADS_KM = 64000000;
+const TOTAL_WORLD_ROADS_KM = 64000000;
+
+type TimePeriod = 'daily' | 'weekly' | 'monthly' | 'all';
 
 export default function WorldMapScreen() {
   const { trips } = useTrip();
+  const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('all');
 
-  const { totalCoverage, allCoordinates, routeColors } = useMemo(() => {
-    let totalDistance = 0;
-    const coords: { latitude: number; longitude: number }[] = [];
+  const filteredTrips = useMemo(() => {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay()).getTime();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+    switch (selectedPeriod) {
+      case 'daily':
+        return trips.filter(trip => trip.startTime >= startOfDay);
+      case 'weekly':
+        return trips.filter(trip => trip.startTime >= startOfWeek);
+      case 'monthly':
+        return trips.filter(trip => trip.startTime >= startOfMonth);
+      default:
+        return trips;
+    }
+  }, [trips, selectedPeriod]);
+
+  const { totalDistance, totalCoverage, routeColors } = useMemo(() => {
+    let distance = 0;
     const colors: string[] = [];
 
-    trips.forEach((trip, index) => {
-      totalDistance += trip.distance;
+    filteredTrips.forEach((trip, index) => {
+      distance += trip.distance;
       
       if (trip.locations.length > 0) {
-        trip.locations.forEach(location => {
-          coords.push({
-            latitude: location.latitude,
-            longitude: location.longitude,
-          });
-        });
-        
         const hue = (index * 137.5) % 360;
         colors.push(`hsl(${hue}, 70%, 60%)`);
       }
     });
 
-    const coveragePercentage = (totalDistance / TOTAL_ROADS_KM) * 100;
+    const coveragePercentage = (distance / TOTAL_WORLD_ROADS_KM) * 100;
 
     return {
+      totalDistance: distance,
       totalCoverage: coveragePercentage,
-      allCoordinates: coords,
       routeColors: colors,
     };
-  }, [trips]);
+  }, [filteredTrips]);
 
   const initialRegion = useMemo(() => {
+    const allCoordinates: { latitude: number; longitude: number }[] = [];
+    
+    filteredTrips.forEach((trip) => {
+      trip.locations.forEach(location => {
+        allCoordinates.push({
+          latitude: location.latitude,
+          longitude: location.longitude,
+        });
+      });
+    });
+
     if (allCoordinates.length === 0) {
       return {
         latitude: 20,
@@ -71,7 +95,22 @@ export default function WorldMapScreen() {
       latitudeDelta: Math.max(latDelta, 0.05),
       longitudeDelta: Math.max(lngDelta, 0.05),
     };
-  }, [allCoordinates]);
+  }, [filteredTrips]);
+
+  const formatCoverage = (percentage: number) => {
+    if (percentage === 0) return '0%';
+    if (percentage < 0.0000001) return `${percentage.toExponential(2)}%`;
+    if (percentage < 0.001) return `${percentage.toFixed(6)}%`;
+    if (percentage < 1) return `${percentage.toFixed(4)}%`;
+    return `${percentage.toFixed(2)}%`;
+  };
+
+  const periods: { key: TimePeriod; label: string }[] = [
+    { key: 'daily', label: 'Today' },
+    { key: 'weekly', label: 'Week' },
+    { key: 'monthly', label: 'Month' },
+    { key: 'all', label: 'All' },
+  ];
 
   return (
     <View style={styles.container}>
@@ -81,9 +120,31 @@ export default function WorldMapScreen() {
             <Globe size={28} color={theme.colors.dark.accent} strokeWidth={2} />
             <View>
               <Text style={styles.title}>World Coverage</Text>
-              <Text style={styles.subtitle}>{trips.length} trips recorded</Text>
+              <Text style={styles.subtitle}>{filteredTrips.length} trips recorded</Text>
             </View>
           </View>
+        </View>
+
+        <View style={styles.periodSelector}>
+          {periods.map((period) => (
+            <Pressable
+              key={period.key}
+              style={[
+                styles.periodTab,
+                selectedPeriod === period.key && styles.periodTabActive,
+              ]}
+              onPress={() => setSelectedPeriod(period.key)}
+            >
+              <Text
+                style={[
+                  styles.periodTabText,
+                  selectedPeriod === period.key && styles.periodTabTextActive,
+                ]}
+              >
+                {period.label}
+              </Text>
+            </Pressable>
+          ))}
         </View>
       </SafeAreaView>
 
@@ -91,7 +152,7 @@ export default function WorldMapScreen() {
         <MapView
           style={styles.map}
           initialRegion={initialRegion}
-          provider={PROVIDER_DEFAULT}
+          provider={Platform.OS === 'ios' ? undefined : PROVIDER_GOOGLE}
           mapType="standard"
           showsUserLocation={false}
           showsMyLocationButton={false}
@@ -100,7 +161,7 @@ export default function WorldMapScreen() {
           scrollEnabled={true}
           zoomEnabled={true}
         >
-          {trips.map((trip, tripIndex) => {
+          {filteredTrips.map((trip, tripIndex) => {
             if (trip.locations.length < 2) return null;
 
             return (
@@ -122,24 +183,35 @@ export default function WorldMapScreen() {
 
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
-          <Text style={styles.statLabel}>World Road Coverage</Text>
-          <Text style={styles.statValue}>
-            {totalCoverage < 0.001 
-              ? totalCoverage.toExponential(2)
-              : totalCoverage.toFixed(6)}%
-          </Text>
+          <View style={styles.statHeader}>
+            <Globe size={16} color={theme.colors.dark.accent} />
+            <Text style={styles.statLabel}>World Road Coverage</Text>
+          </View>
+          <Text style={styles.statValue}>{formatCoverage(totalCoverage)}</Text>
           <Text style={styles.statSubtext}>
-            of {(TOTAL_ROADS_KM / 1000000).toFixed(0)}M km total roads
+            {totalDistance.toFixed(1)} km of ~64M km world roads
           </Text>
         </View>
 
         <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Routes Tracked</Text>
-          <Text style={styles.statValue}>{trips.length}</Text>
+          <View style={styles.statHeader}>
+            <Route size={16} color={theme.colors.dark.success} />
+            <Text style={styles.statLabel}>Routes Tracked</Text>
+          </View>
+          <Text style={styles.statValue}>{filteredTrips.length}</Text>
           <Text style={styles.statSubtext}>
-            {trips.reduce((sum, trip) => sum + trip.distance, 0).toFixed(1)} km total
+            {totalDistance.toFixed(1)} km total distance
           </Text>
         </View>
+      </View>
+
+      <View style={styles.infoCard}>
+        <Calendar size={14} color={theme.colors.dark.textSecondary} />
+        <Text style={styles.infoText}>
+          {selectedPeriod === 'all' 
+            ? 'Showing all recorded routes' 
+            : `Showing routes from ${selectedPeriod === 'daily' ? 'today' : selectedPeriod === 'weekly' ? 'this week' : 'this month'}`}
+        </Text>
       </View>
     </View>
   );
@@ -174,6 +246,31 @@ const styles = StyleSheet.create({
     color: theme.colors.dark.textSecondary,
     marginTop: 2,
   },
+  periodSelector: {
+    flexDirection: 'row',
+    paddingHorizontal: theme.spacing.lg,
+    gap: theme.spacing.sm,
+    paddingBottom: theme.spacing.md,
+  },
+  periodTab: {
+    flex: 1,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.dark.card,
+    alignItems: 'center',
+  },
+  periodTabActive: {
+    backgroundColor: theme.colors.dark.accent,
+  },
+  periodTabText: {
+    ...theme.typography.callout,
+    color: theme.colors.dark.textSecondary,
+    fontWeight: '600' as const,
+  },
+  periodTabTextActive: {
+    color: '#FFFFFF',
+  },
   mapContainer: {
     flex: 1,
   },
@@ -182,7 +279,7 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     position: 'absolute',
-    bottom: 100,
+    bottom: 120,
     left: theme.spacing.lg,
     right: theme.spacing.lg,
     flexDirection: 'row',
@@ -192,27 +289,50 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(18, 18, 18, 0.95)',
     borderRadius: theme.borderRadius.xl,
-    padding: theme.spacing.lg,
+    padding: theme.spacing.md,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
-    backdropFilter: 'blur(10px)',
+  },
+  statHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    marginBottom: theme.spacing.xs,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: theme.colors.dark.textSecondary,
     fontWeight: '600' as const,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   statValue: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700' as const,
     color: theme.colors.dark.accent,
-    marginTop: theme.spacing.xs,
   },
   statSubtext: {
-    fontSize: 12,
+    fontSize: 11,
     color: theme.colors.dark.textTertiary,
     marginTop: theme.spacing.xs,
+  },
+  infoCard: {
+    position: 'absolute',
+    bottom: 80,
+    left: theme.spacing.lg,
+    right: theme.spacing.lg,
+    backgroundColor: 'rgba(18, 18, 18, 0.9)',
+    borderRadius: theme.borderRadius.lg,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  infoText: {
+    fontSize: 12,
+    color: theme.colors.dark.textSecondary,
   },
 });

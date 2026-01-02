@@ -29,6 +29,16 @@ export const [TripProvider, useTrip] = createContextHook(() => {
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
   const pauseTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastLowSpeedTime = useRef<number | null>(null);
+  const tripsRef = useRef<Trip[]>(trips);
+  const statsRef = useRef<TripStats>(stats);
+
+  useEffect(() => {
+    tripsRef.current = trips;
+  }, [trips]);
+
+  useEffect(() => {
+    statsRef.current = stats;
+  }, [stats]);
 
   useEffect(() => {
     loadTrips();
@@ -225,6 +235,8 @@ export const [TripProvider, useTrip] = createContextHook(() => {
   }, [hasPermission]);
 
   const stopTrip = useCallback(() => {
+    console.log('Stopping trip...');
+    
     if (locationSubscription.current) {
       try {
         if (typeof locationSubscription.current.remove === 'function') {
@@ -244,7 +256,12 @@ export const [TripProvider, useTrip] = createContextHook(() => {
     lastLowSpeedTime.current = null;
 
     setCurrentTrip((prev) => {
-      if (!prev) return prev;
+      if (!prev) {
+        console.log('No current trip to stop');
+        return prev;
+      }
+
+      console.log('Ending trip:', prev.id);
 
       const endedTrip: Trip = {
         ...prev,
@@ -252,19 +269,26 @@ export const [TripProvider, useTrip] = createContextHook(() => {
         isPaused: false,
       };
 
-      const updatedTrips = [endedTrip, ...trips];
+      const currentTrips = tripsRef.current;
+      const currentStats = statsRef.current;
+
+      const updatedTrips = [endedTrip, ...currentTrips];
       setTrips(updatedTrips);
       saveTrips(updatedTrips);
 
+      const newTotalDistance = currentStats.totalDistance + endedTrip.distance;
+      const newTotalDuration = currentStats.totalDuration + endedTrip.duration;
       const updatedStats: TripStats = {
-        totalDistance: stats.totalDistance + endedTrip.distance,
-        totalTrips: stats.totalTrips + 1,
-        totalDuration: stats.totalDuration + endedTrip.duration,
-        averageSpeed: (stats.totalDistance + endedTrip.distance) / ((stats.totalDuration + endedTrip.duration) / 1000 / 3600),
-        maxSpeedAllTime: Math.max(stats.maxSpeedAllTime, endedTrip.maxSpeed),
+        totalDistance: newTotalDistance,
+        totalTrips: currentStats.totalTrips + 1,
+        totalDuration: newTotalDuration,
+        averageSpeed: newTotalDuration > 0 ? newTotalDistance / (newTotalDuration / 1000 / 3600) : 0,
+        maxSpeedAllTime: Math.max(currentStats.maxSpeedAllTime, endedTrip.maxSpeed),
       };
       setStats(updatedStats);
       saveStats(updatedStats);
+
+      console.log('Trip ended and saved:', endedTrip.id);
 
       return null;
     });
@@ -272,7 +296,7 @@ export const [TripProvider, useTrip] = createContextHook(() => {
     setIsTracking(false);
     setCurrentSpeed(0);
     setCurrentLocation(null);
-  }, [trips, stats]);
+  }, []);
 
   const deleteTrip = useCallback((tripId: string) => {
     setTrips((prev) => {

@@ -4,7 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
+import { makeRedirectUri } from 'expo-auth-session';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -22,9 +23,16 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [, googleResponse, googlePromptAsync] = Google.useAuthRequest({
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+  const redirectUri = makeRedirectUri({
+    scheme: 'roadquest',
+    path: 'auth',
+  });
+
+  const [request, googleResponse, googlePromptAsync] = Google.useAuthRequest({
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '',
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '',
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '',
+    redirectUri: Platform.OS === 'web' ? undefined : redirectUri,
   });
 
   const loadUser = async () => {
@@ -92,12 +100,35 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
   const signInWithGoogle = useCallback(async () => {
     console.log('Signing in with Google...');
+    console.log('Request ready:', !!request);
+    console.log('Web Client ID:', process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ? 'Set' : 'Not set');
+    console.log('iOS Client ID:', process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ? 'Set' : 'Not set');
+    
+    if (!request) {
+      console.error('Google auth request not ready');
+      if (Platform.OS === 'web') {
+        alert('Google Sign-In is not available. Please try Apple Sign-In or check console for details.');
+      } else {
+        Alert.alert('Error', 'Google Sign-In is not available at the moment. Please try again or use Apple Sign-In.');
+      }
+      return;
+    }
+    
     try {
-      await googlePromptAsync();
+      const result = await googlePromptAsync();
+      console.log('Google auth result:', result);
+      if (result?.type === 'error') {
+        console.error('Google auth error:', result.error);
+      }
     } catch (error) {
       console.error('Google sign in error:', error);
+      if (Platform.OS === 'web') {
+        alert('Failed to sign in with Google. Please try Apple Sign-In.');
+      } else {
+        Alert.alert('Error', 'Failed to sign in with Google. Please try again.');
+      }
     }
-  }, [googlePromptAsync]);
+  }, [googlePromptAsync, request]);
 
   const signInWithApple = useCallback(async () => {
     console.log('Signing in with Apple...');
