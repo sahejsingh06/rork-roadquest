@@ -1096,7 +1096,7 @@ const styles = StyleSheet.create({
   },
   featureDescription: {
     ...theme.typography.body,
-    color: theme.colors.dark.textSecondary,
+    color: theme.colors.dark.text,
     lineHeight: 26,
     textAlign: 'center',
     fontSize: 16,
