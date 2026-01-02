@@ -32,6 +32,9 @@ export const [UserProvider, useUser] = createContextHook(() => {
       console.log('User profile loaded:', stored ? 'found' : 'not found');
       if (stored) {
         const profile = JSON.parse(stored) as UserProfile;
+        if (!profile.cars) {
+          profile.cars = [];
+        }
         setUserProfile(profile);
       } else if (authUser) {
         const newProfile: UserProfile = {
