@@ -1,7 +1,7 @@
 import createContextHook from '@nkzw/create-context-hook';
 import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { UserProfile } from '@/types/user';
+import type { UserProfile, Car } from '@/types/user';
 import { useAuth } from '@/contexts/AuthContext';
 
 const USER_PROFILE_KEY = '@roadquest_user_profile';
@@ -38,6 +38,8 @@ export const [UserProvider, useUser] = createContextHook(() => {
           id: authUser.id,
           username: authUser.name,
           createdAt: Date.now(),
+          photoUrl: authUser.photoUrl,
+          cars: [],
         };
         setUserProfile(newProfile);
         await saveUserProfile(newProfile, authUserId);
@@ -70,9 +72,57 @@ export const [UserProvider, useUser] = createContextHook(() => {
     await saveUserProfile(updatedProfile, authUser.id);
   }, [userProfile, authUser, saveUserProfile]);
 
+  const updateProfilePhoto = useCallback(async (photoUrl: string) => {
+    if (!userProfile || !authUser) return;
+    
+    const updatedProfile: UserProfile = {
+      ...userProfile,
+      photoUrl,
+    };
+    setUserProfile(updatedProfile);
+    await saveUserProfile(updatedProfile, authUser.id);
+  }, [userProfile, authUser, saveUserProfile]);
+
+  const updateRegion = useCallback(async (region: string) => {
+    if (!userProfile || !authUser) return;
+    
+    const updatedProfile: UserProfile = {
+      ...userProfile,
+      region,
+    };
+    setUserProfile(updatedProfile);
+    await saveUserProfile(updatedProfile, authUser.id);
+  }, [userProfile, authUser, saveUserProfile]);
+
+  const addCar = useCallback(async (car: Car) => {
+    if (!userProfile || !authUser) return;
+    
+    const updatedProfile: UserProfile = {
+      ...userProfile,
+      cars: [...userProfile.cars, car],
+    };
+    setUserProfile(updatedProfile);
+    await saveUserProfile(updatedProfile, authUser.id);
+  }, [userProfile, authUser, saveUserProfile]);
+
+  const removeCar = useCallback(async (carId: string) => {
+    if (!userProfile || !authUser) return;
+    
+    const updatedProfile: UserProfile = {
+      ...userProfile,
+      cars: userProfile.cars.filter(c => c.id !== carId),
+    };
+    setUserProfile(updatedProfile);
+    await saveUserProfile(updatedProfile, authUser.id);
+  }, [userProfile, authUser, saveUserProfile]);
+
   return {
     userProfile,
     isLoading,
     updateUsername,
+    updateProfilePhoto,
+    updateRegion,
+    addCar,
+    removeCar,
   };
 });

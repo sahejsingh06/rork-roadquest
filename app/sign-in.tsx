@@ -54,7 +54,7 @@ export default function SignInScreen() {
             >
               <View style={styles.buttonContent}>
                 <Text style={styles.appleIcon}></Text>
-                <Text style={styles.buttonText}>Continue with Apple</Text>
+                <Text style={styles.appleButtonText}>Continue with Apple</Text>
               </View>
             </TouchableOpacity>
           )}
@@ -131,6 +131,12 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 17,
     fontWeight: '600' as const,
+    color: '#000000',
+  },
+  appleButtonText: {
+    fontSize: 17,
+    fontWeight: '600' as const,
+    color: '#FFFFFF',
   },
   googleIcon: {
     fontSize: 24,

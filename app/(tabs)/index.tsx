@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, Pressable, Platform } from 'react-native';
+import { StyleSheet, Text, View, Pressable, Platform, ScrollView, Modal } from 'react-native';
 import MapView, { Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import { Play, Square, Pause } from 'lucide-react-native';
+import { Play, Square, ChevronRight } from 'lucide-react-native';
 import { useTrip } from '@/contexts/TripContext';
+import { useUser } from '@/contexts/UserContext';
 import { theme } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import type { Car } from '@/types/user';
 
 export default function DriveScreen() {
   const {
@@ -18,6 +21,10 @@ export default function DriveScreen() {
     stopTrip,
     toggleUnit,
   } = useTrip();
+
+  const { userProfile } = useUser();
+  const [selectedCar, setSelectedCar] = useState<Car | null>(null);
+  const [showCarSelector, setShowCarSelector] = useState(false);
 
   const [region, setRegion] = useState({
     latitude: 37.78825,
@@ -48,8 +55,136 @@ export default function DriveScreen() {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
+  };
+
+  const handleStartDrive = () => {
+    if (userProfile && userProfile.cars.length > 0 && !selectedCar) {
+      setShowCarSelector(true);
+    } else {
+      startTrip();
+    }
+  };
+
+  const handleSelectCar = (car: Car) => {
+    setSelectedCar(car);
+    setShowCarSelector(false);
+    startTrip();
+  };
+
   const displaySpeed = useKmh ? currentSpeed : currentSpeed * 0.621371;
   const speedUnit = useKmh ? 'km/h' : 'mph';
+
+  if (!isTracking && !showCarSelector) {
+    return (
+      <View style={styles.container}>
+        <LinearGradient
+          colors={['#000000', '#0a0a0a', '#1a1a1a']}
+          style={styles.preStartContainer}
+        >
+          <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
+            <View style={styles.preStartContent}>
+              <View style={styles.greetingSection}>
+                <Text style={styles.greeting}>
+                  {getGreeting()}{userProfile ? `, ${userProfile.username}` : ''}
+                </Text>
+                <Text style={styles.greetingSubtext}>Ready to hit the road?</Text>
+              </View>
+
+              {selectedCar && (
+                <Pressable 
+                  style={styles.selectedCarCard}
+                  onPress={() => setShowCarSelector(true)}
+                >
+                  <Text style={styles.selectedCarIcon}>{selectedCar.icon}</Text>
+                  <View style={styles.selectedCarInfo}>
+                    <Text style={styles.selectedCarBrand}>{selectedCar.brand}</Text>
+                    <Text style={styles.selectedCarModel}>{selectedCar.model} • {selectedCar.year}</Text>
+                  </View>
+                  <ChevronRight size={20} color={theme.colors.dark.textSecondary} />
+                </Pressable>
+              )}
+
+              {userProfile && userProfile.cars.length > 0 && !selectedCar && (
+                <Pressable 
+                  style={styles.selectCarPrompt}
+                  onPress={() => setShowCarSelector(true)}
+                >
+                  <Text style={styles.selectCarText}>Select your car</Text>
+                  <ChevronRight size={20} color={theme.colors.dark.accent} />
+                </Pressable>
+              )}
+
+              <Pressable
+                style={styles.startDriveButton}
+                onPress={handleStartDrive}
+                disabled={!hasPermission}
+              >
+                <LinearGradient
+                  colors={['#0A84FF', '#0066CC']}
+                  style={styles.startButtonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <Play size={28} color="#FFFFFF" fill="#FFFFFF" />
+                  <Text style={styles.startDriveText}>Start Drive</Text>
+                </LinearGradient>
+              </Pressable>
+
+              {!hasPermission && (
+                <Text style={styles.permissionText}>
+                  Location permission required
+                </Text>
+              )}
+            </View>
+          </SafeAreaView>
+        </LinearGradient>
+
+        <Modal
+          visible={showCarSelector}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowCarSelector(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.carSelectorModal}>
+              <View style={styles.modalHandle} />
+              <Text style={styles.modalTitle}>Select Your Car</Text>
+              <ScrollView style={styles.carList} showsVerticalScrollIndicator={false}>
+                {userProfile?.cars.map((car) => (
+                  <Pressable
+                    key={car.id}
+                    style={styles.carOption}
+                    onPress={() => handleSelectCar(car)}
+                  >
+                    <Text style={styles.carOptionIcon}>{car.icon}</Text>
+                    <View style={styles.carOptionInfo}>
+                      <Text style={styles.carOptionBrand}>{car.brand}</Text>
+                      <Text style={styles.carOptionModel}>{car.model} • {car.year}</Text>
+                    </View>
+                    <ChevronRight size={20} color={theme.colors.dark.textSecondary} />
+                  </Pressable>
+                ))}
+              </ScrollView>
+              <Pressable
+                style={styles.skipButton}
+                onPress={() => {
+                  setShowCarSelector(false);
+                  startTrip();
+                }}
+              >
+                <Text style={styles.skipButtonText}>Skip</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -76,7 +211,14 @@ export default function DriveScreen() {
 
       <SafeAreaView edges={['top']} style={styles.headerSafeArea}>
         <View style={styles.header}>
-          <Text style={styles.logo}>RoadQuest</Text>
+          <View style={styles.headerLeft}>
+            {selectedCar && (
+              <View style={styles.headerCar}>
+                <Text style={styles.headerCarIcon}>{selectedCar.icon}</Text>
+                <Text style={styles.headerCarName}>{selectedCar.brand}</Text>
+              </View>
+            )}
+          </View>
           <Pressable onPress={toggleUnit} style={styles.unitToggle}>
             <Text style={styles.unitText}>{speedUnit}</Text>
           </Pressable>
@@ -85,63 +227,47 @@ export default function DriveScreen() {
 
       <View style={styles.overlay}>
         <View style={styles.speedContainer}>
-            <Text style={styles.speed}>
-              {Math.round(displaySpeed)}
-            </Text>
-            <Text style={styles.speedUnit}>{speedUnit}</Text>
-          </View>
+          <Text style={styles.speed}>
+            {Math.round(displaySpeed)}
+          </Text>
+          <Text style={styles.speedUnit}>{speedUnit}</Text>
+        </View>
 
-          {isTracking && currentTrip && (
-            <View style={styles.statsRow}>
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>
-                  {currentTrip.distance.toFixed(2)}
-                </Text>
-                <Text style={styles.statLabel}>km</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>
-                  {formatDuration(currentTrip.duration)}
-                </Text>
-                <Text style={styles.statLabel}>time</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>
-                  {Math.round(useKmh ? currentTrip.avgSpeed : currentTrip.avgSpeed * 0.621371)}
-                </Text>
-                <Text style={styles.statLabel}>avg</Text>
-              </View>
+        {isTracking && currentTrip && (
+          <View style={styles.statsRow}>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>
+                {currentTrip.distance.toFixed(2)}
+              </Text>
+              <Text style={styles.statLabel}>km</Text>
             </View>
-          )}
-
-        {currentTrip?.isPaused && (
-          <View style={styles.pausedBanner}>
-            <Pause size={16} color={theme.colors.dark.warning} />
-            <Text style={styles.pausedText}>Auto-Paused</Text>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>
+                {formatDuration(currentTrip.duration)}
+              </Text>
+              <Text style={styles.statLabel}>time</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>
+                {Math.round(useKmh ? currentTrip.avgSpeed : currentTrip.avgSpeed * 0.621371)}
+              </Text>
+              <Text style={styles.statLabel}>avg</Text>
+            </View>
           </View>
         )}
       </View>
 
       <SafeAreaView edges={['bottom']} style={styles.bottomSafeArea}>
         <View style={styles.controlsContainer}>
-          {!isTracking ? (
-            <Pressable
-              style={[styles.controlButton, styles.startButton]}
-              onPress={startTrip}
-              disabled={!hasPermission}
-            >
-              <Play size={32} color={theme.colors.dark.background} fill={theme.colors.dark.background} />
-              <Text style={styles.startButtonText}>Start Drive</Text>
-            </Pressable>
-          ) : (
-            <Pressable
-              style={[styles.controlButton, styles.stopButton]}
-              onPress={stopTrip}
-            >
-              <Square size={24} color={theme.colors.dark.text} fill={theme.colors.dark.text} />
+          <Pressable
+            style={styles.stopButton}
+            onPress={stopTrip}
+          >
+            <View style={styles.stopButtonContent}>
+              <Square size={20} color="#FFFFFF" fill="#FFFFFF" />
               <Text style={styles.stopButtonText}>End Drive</Text>
-            </Pressable>
-          )}
+            </View>
+          </Pressable>
         </View>
       </SafeAreaView>
     </View>
@@ -155,6 +281,103 @@ const styles = StyleSheet.create({
   },
   map: {
     ...StyleSheet.absoluteFillObject,
+  },
+  preStartContainer: {
+    flex: 1,
+  },
+  safeArea: {
+    flex: 1,
+  },
+  preStartContent: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.xl,
+    gap: theme.spacing.xl,
+  },
+  greetingSection: {
+    alignItems: 'center',
+    marginBottom: theme.spacing.lg,
+  },
+  greeting: {
+    ...theme.typography.title1,
+    color: theme.colors.dark.text,
+    fontWeight: '700' as const,
+    textAlign: 'center',
+    fontSize: 38,
+  },
+  greetingSubtext: {
+    ...theme.typography.title3,
+    color: theme.colors.dark.textSecondary,
+    marginTop: theme.spacing.sm,
+    textAlign: 'center',
+  },
+  selectedCarCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(28, 28, 30, 0.8)',
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing.lg,
+    gap: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.dark.border,
+  },
+  selectedCarIcon: {
+    fontSize: 40,
+  },
+  selectedCarInfo: {
+    flex: 1,
+  },
+  selectedCarBrand: {
+    ...theme.typography.headline,
+    color: theme.colors.dark.text,
+    fontWeight: '600' as const,
+  },
+  selectedCarModel: {
+    ...theme.typography.subheadline,
+    color: theme.colors.dark.textSecondary,
+    marginTop: theme.spacing.xs,
+  },
+  selectCarPrompt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(10, 132, 255, 0.1)',
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(10, 132, 255, 0.3)',
+  },
+  selectCarText: {
+    ...theme.typography.headline,
+    color: theme.colors.dark.accent,
+    fontWeight: '600' as const,
+  },
+  startDriveButton: {
+    borderRadius: theme.borderRadius.xl,
+    overflow: 'hidden',
+    elevation: 8,
+    shadowColor: '#0A84FF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+  },
+  startButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.md,
+    paddingVertical: theme.spacing.xl,
+  },
+  startDriveText: {
+    ...theme.typography.title3,
+    color: '#FFFFFF',
+    fontWeight: '700' as const,
+    fontSize: 24,
+  },
+  permissionText: {
+    ...theme.typography.subheadline,
+    color: theme.colors.dark.textSecondary,
+    textAlign: 'center',
   },
   headerSafeArea: {
     position: 'absolute',
@@ -170,15 +393,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
   },
-  logo: {
-    ...theme.typography.title3,
+  headerLeft: {
+    flex: 1,
+  },
+  headerCar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(28, 28, 30, 0.8)',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.full,
+    gap: theme.spacing.xs,
+  },
+  headerCarIcon: {
+    fontSize: 20,
+  },
+  headerCarName: {
+    ...theme.typography.callout,
     color: theme.colors.dark.text,
-    fontWeight: '700' as const,
+    fontWeight: '600' as const,
   },
   unitToggle: {
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
-    backgroundColor: 'rgba(44, 44, 46, 0.8)',
+    backgroundColor: 'rgba(28, 28, 30, 0.8)',
     borderRadius: theme.borderRadius.md,
   },
   unitText: {
@@ -195,62 +433,49 @@ const styles = StyleSheet.create({
   },
   speedContainer: {
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    paddingVertical: theme.spacing.lg,
-    paddingHorizontal: theme.spacing.xl,
-    borderRadius: theme.borderRadius.xl,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
     alignSelf: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(10, 132, 255, 0.3)',
   },
   speed: {
-    ...theme.typography.largeTitle,
-    color: theme.colors.dark.speed,
-    fontSize: 96,
+    fontSize: 56,
+    color: theme.colors.dark.accent,
     fontWeight: '700' as const,
-    letterSpacing: -4,
+    letterSpacing: -2,
   },
   speedUnit: {
-    ...theme.typography.title3,
+    ...theme.typography.subheadline,
     color: theme.colors.dark.textSecondary,
-    marginTop: -theme.spacing.sm,
+    marginTop: -theme.spacing.xs,
+    fontWeight: '600' as const,
   },
   statsRow: {
     flexDirection: 'row',
-    gap: theme.spacing.md,
-    marginTop: theme.spacing.lg,
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.md,
   },
   statCard: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
     padding: theme.spacing.md,
     borderRadius: theme.borderRadius.md,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   statValue: {
-    ...theme.typography.title2,
+    ...theme.typography.headline,
     color: theme.colors.dark.text,
-    fontWeight: '600' as const,
+    fontWeight: '700' as const,
   },
   statLabel: {
     ...theme.typography.caption1,
     color: theme.colors.dark.textSecondary,
     marginTop: theme.spacing.xs,
-  },
-  pausedBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing.sm,
-    backgroundColor: 'rgba(255, 149, 0, 0.2)',
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    marginTop: theme.spacing.md,
-    alignSelf: 'center',
-  },
-  pausedText: {
-    ...theme.typography.callout,
-    color: theme.colors.dark.warning,
-    fontWeight: '600' as const,
   },
   bottomSafeArea: {
     position: 'absolute',
@@ -263,30 +488,90 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing.md,
   },
-  controlButton: {
+  stopButton: {
+    backgroundColor: 'rgba(28, 28, 30, 0.95)',
+    borderRadius: theme.borderRadius.xl,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  stopButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: theme.spacing.md,
     paddingVertical: theme.spacing.lg,
-    borderRadius: theme.borderRadius.xl,
-  },
-  startButton: {
-    backgroundColor: 'rgba(0, 122, 255, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 122, 255, 0.3)',
-  },
-  startButtonText: {
-    ...theme.typography.title3,
-    color: '#007AFF',
-    fontWeight: '700' as const,
-  },
-  stopButton: {
-    backgroundColor: theme.colors.dark.card,
   },
   stopButtonText: {
+    ...theme.typography.headline,
+    color: theme.colors.dark.text,
+    fontWeight: '600' as const,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'flex-end',
+  },
+  carSelectorModal: {
+    backgroundColor: theme.colors.dark.card,
+    borderTopLeftRadius: theme.borderRadius.xl,
+    borderTopRightRadius: theme.borderRadius.xl,
+    paddingHorizontal: theme.spacing.xl,
+    paddingBottom: theme.spacing.xl,
+    maxHeight: '70%',
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: theme.colors.dark.border,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
+  },
+  modalTitle: {
     ...theme.typography.title3,
     color: theme.colors.dark.text,
+    fontWeight: '700' as const,
+    marginBottom: theme.spacing.lg,
+  },
+  carList: {
+    marginBottom: theme.spacing.lg,
+  },
+  carOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.dark.cardElevated,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
+    gap: theme.spacing.md,
+  },
+  carOptionIcon: {
+    fontSize: 40,
+  },
+  carOptionInfo: {
+    flex: 1,
+  },
+  carOptionBrand: {
+    ...theme.typography.headline,
+    color: theme.colors.dark.text,
+    fontWeight: '600' as const,
+  },
+  carOptionModel: {
+    ...theme.typography.subheadline,
+    color: theme.colors.dark.textSecondary,
+    marginTop: theme.spacing.xs,
+  },
+  skipButton: {
+    backgroundColor: theme.colors.dark.cardElevated,
+    paddingVertical: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
+    alignItems: 'center',
+  },
+  skipButtonText: {
+    ...theme.typography.callout,
+    color: theme.colors.dark.textSecondary,
     fontWeight: '600' as const,
   },
 });
