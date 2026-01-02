@@ -23,8 +23,9 @@ export const [TripProvider, useTrip] = createContextHook(() => {
     averageSpeed: 0,
     maxSpeedAllTime: 0,
   });
-  const [hasPermission, setHasPermission] = useState(false);
+  const [hasPermission, setHasPermission] = useState(Platform.OS === 'web');
   const [useKmh, setUseKmh] = useState(true);
+  const isStoppingRef = useRef(false);
 
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
   const pauseTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -139,7 +140,15 @@ export const [TripProvider, useTrip] = createContextHook(() => {
   };
 
   const startTrip = useCallback(async () => {
-    if (!hasPermission) {
+    console.log('startTrip called, hasPermission:', hasPermission, 'isTracking:', isTracking);
+    
+    if (isTracking) {
+      console.log('Already tracking, ignoring start');
+      return;
+    }
+
+    if (!hasPermission && Platform.OS !== 'web') {
+      console.log('No permission, requesting...');
       await requestPermissions();
       return;
     }
@@ -157,10 +166,18 @@ export const [TripProvider, useTrip] = createContextHook(() => {
       pausedDuration: 0,
     };
 
+    console.log('Creating new trip:', newTrip.id);
     setCurrentTrip(newTrip);
     setIsTracking(true);
+    isStoppingRef.current = false;
+
+    if (Platform.OS === 'web') {
+      console.log('Web platform - using simulated tracking');
+      return;
+    }
 
     try {
+      console.log('Starting location watch...');
       const subscription = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.BestForNavigation,
@@ -168,6 +185,8 @@ export const [TripProvider, useTrip] = createContextHook(() => {
           distanceInterval: 5,
         },
         (location) => {
+          if (isStoppingRef.current) return;
+          
           const speed = (location.coords.speed || 0) < 0 ? 0 : (location.coords.speed || 0);
           const speedKmh = speed * 3.6;
 
@@ -183,7 +202,7 @@ export const [TripProvider, useTrip] = createContextHook(() => {
           setCurrentLocation(point);
 
           setCurrentTrip((prev) => {
-            if (!prev) return prev;
+            if (!prev || isStoppingRef.current) return prev;
 
             const updatedLocations = [...prev.locations, point];
             let distance = prev.distance;
@@ -228,17 +247,27 @@ export const [TripProvider, useTrip] = createContextHook(() => {
       );
 
       locationSubscription.current = subscription;
+      console.log('Location subscription started successfully');
     } catch (error) {
       console.error('Error starting location tracking:', error);
       setIsTracking(false);
+      setCurrentTrip(null);
     }
-  }, [hasPermission]);
+  }, [hasPermission, isTracking]);
 
   const stopTrip = useCallback(() => {
-    console.log('Stopping trip...');
+    console.log('stopTrip called, isTracking:', isTracking, 'currentTrip:', currentTrip?.id);
+    
+    if (isStoppingRef.current) {
+      console.log('Already stopping, ignoring');
+      return;
+    }
+    
+    isStoppingRef.current = true;
     
     if (locationSubscription.current) {
       try {
+        console.log('Removing location subscription...');
         if (typeof locationSubscription.current.remove === 'function') {
           locationSubscription.current.remove();
         }
@@ -255,48 +284,54 @@ export const [TripProvider, useTrip] = createContextHook(() => {
 
     lastLowSpeedTime.current = null;
 
-    setCurrentTrip((prev) => {
-      if (!prev) {
-        console.log('No current trip to stop');
-        return prev;
-      }
+    const tripToEnd = currentTrip;
+    
+    if (!tripToEnd) {
+      console.log('No current trip to stop');
+      setIsTracking(false);
+      isStoppingRef.current = false;
+      return;
+    }
 
-      console.log('Ending trip:', prev.id);
+    console.log('Ending trip:', tripToEnd.id);
 
-      const endedTrip: Trip = {
-        ...prev,
-        endTime: Date.now(),
-        isPaused: false,
-      };
+    const endedTrip: Trip = {
+      ...tripToEnd,
+      endTime: Date.now(),
+      duration: Date.now() - tripToEnd.startTime - tripToEnd.pausedDuration,
+      isPaused: false,
+    };
 
-      const currentTrips = tripsRef.current;
-      const currentStats = statsRef.current;
+    const currentTrips = tripsRef.current;
+    const currentStats = statsRef.current;
 
-      const updatedTrips = [endedTrip, ...currentTrips];
-      setTrips(updatedTrips);
-      saveTrips(updatedTrips);
+    const updatedTrips = [endedTrip, ...currentTrips];
+    setTrips(updatedTrips);
+    saveTrips(updatedTrips);
 
-      const newTotalDistance = currentStats.totalDistance + endedTrip.distance;
-      const newTotalDuration = currentStats.totalDuration + endedTrip.duration;
-      const updatedStats: TripStats = {
-        totalDistance: newTotalDistance,
-        totalTrips: currentStats.totalTrips + 1,
-        totalDuration: newTotalDuration,
-        averageSpeed: newTotalDuration > 0 ? newTotalDistance / (newTotalDuration / 1000 / 3600) : 0,
-        maxSpeedAllTime: Math.max(currentStats.maxSpeedAllTime, endedTrip.maxSpeed),
-      };
-      setStats(updatedStats);
-      saveStats(updatedStats);
+    const newTotalDistance = currentStats.totalDistance + endedTrip.distance;
+    const newTotalDuration = currentStats.totalDuration + endedTrip.duration;
+    const updatedStats: TripStats = {
+      totalDistance: newTotalDistance,
+      totalTrips: currentStats.totalTrips + 1,
+      totalDuration: newTotalDuration,
+      averageSpeed: newTotalDuration > 0 ? newTotalDistance / (newTotalDuration / 1000 / 3600) : 0,
+      maxSpeedAllTime: Math.max(currentStats.maxSpeedAllTime, endedTrip.maxSpeed),
+    };
+    setStats(updatedStats);
+    saveStats(updatedStats);
 
-      console.log('Trip ended and saved:', endedTrip.id);
+    console.log('Trip ended and saved:', endedTrip.id, 'distance:', endedTrip.distance);
 
-      return null;
-    });
-
+    setCurrentTrip(null);
     setIsTracking(false);
     setCurrentSpeed(0);
     setCurrentLocation(null);
-  }, []);
+    
+    setTimeout(() => {
+      isStoppingRef.current = false;
+    }, 500);
+  }, [currentTrip, isTracking]);
 
   const deleteTrip = useCallback((tripId: string) => {
     setTrips((prev) => {
