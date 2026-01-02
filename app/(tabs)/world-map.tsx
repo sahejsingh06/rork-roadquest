@@ -4,17 +4,7 @@ import MapView, { Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useTrip } from '@/contexts/TripContext';
 import { theme } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Globe, Route, Calendar, Info } from 'lucide-react-native';
-
-const MILESTONES = [
-  { km: 100, label: '100 km' },
-  { km: 500, label: '500 km' },
-  { km: 1000, label: '1,000 km' },
-  { km: 5000, label: '5,000 km' },
-  { km: 10000, label: '10,000 km' },
-  { km: 50000, label: '50,000 km' },
-  { km: 100000, label: '100,000 km' },
-];
+import { Globe, Route } from 'lucide-react-native';
 
 const ESTIMATED_WORLD_ROADS_KM = 64000000;
 
@@ -42,13 +32,11 @@ export default function WorldMapScreen() {
     }
   }, [trips, selectedPeriod]);
 
-  const { totalDistance, routeColors, uniqueRoadsKm } = useMemo(() => {
-    let distance = 0;
+  const { routeColors, uniqueRoadsKm } = useMemo(() => {
     const colors: string[] = [];
     const roadSegments = new Set<string>();
 
     filteredTrips.forEach((trip, index) => {
-      distance += trip.distance;
       
       if (trip.locations.length > 0) {
         const hue = (index * 137.5) % 360;
@@ -70,7 +58,6 @@ export default function WorldMapScreen() {
     const uniqueRoadsEstimate = roadSegments.size * 0.05;
 
     return {
-      totalDistance: distance,
       routeColors: colors,
       uniqueRoadsKm: uniqueRoadsEstimate,
     };
@@ -118,28 +105,6 @@ export default function WorldMapScreen() {
       longitudeDelta: Math.max(lngDelta, 0.05),
     };
   }, [filteredTrips]);
-
-  const getCurrentMilestone = (distance: number) => {
-    for (let i = MILESTONES.length - 1; i >= 0; i--) {
-      if (distance >= MILESTONES[i].km) {
-        return MILESTONES[i];
-      }
-    }
-    return null;
-  };
-
-  const getNextMilestone = (distance: number) => {
-    for (const milestone of MILESTONES) {
-      if (distance < milestone.km) {
-        return milestone;
-      }
-    }
-    return MILESTONES[MILESTONES.length - 1];
-  };
-
-  const nextMilestone = getNextMilestone(uniqueRoadsKm);
-  const currentMilestone = getCurrentMilestone(uniqueRoadsKm);
-  const progressToNext = nextMilestone ? Math.min((uniqueRoadsKm / nextMilestone.km) * 100, 100) : 100;
 
   const worldCoveragePercentage = ((uniqueRoadsKm / ESTIMATED_WORLD_ROADS_KM) * 100).toFixed(6);
 
@@ -221,52 +186,21 @@ export default function WorldMapScreen() {
 
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
-          <View style={styles.statHeader}>
-            <Globe size={16} color={theme.colors.dark.accent} />
-            <Text style={styles.statLabel}>World Road Coverage</Text>
-          </View>
+          <Globe size={14} color={theme.colors.dark.accent} />
           <Text style={styles.statValue}>{worldCoveragePercentage}%</Text>
-          <Text style={styles.statSubtext}>
-            {uniqueRoadsKm.toFixed(1)} km of unique roads discovered
-          </Text>
-          <View style={styles.progressContainer}>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: `${progressToNext}%` }]} />
-            </View>
-            <Text style={styles.statSubtext}>
-              {nextMilestone && uniqueRoadsKm < nextMilestone.km 
-                ? `${(nextMilestone.km - uniqueRoadsKm).toFixed(0)} km to ${nextMilestone.label}`
-                : currentMilestone ? `${currentMilestone.label} reached!` : 'Start exploring!'}
-            </Text>
-          </View>
+          <Text style={styles.statLabel}>Coverage</Text>
         </View>
 
         <View style={styles.statCard}>
-          <View style={styles.statHeader}>
-            <Route size={16} color={theme.colors.dark.success} />
-            <Text style={styles.statLabel}>Routes Tracked</Text>
-          </View>
-          <Text style={styles.statValue}>{filteredTrips.length}</Text>
-          <Text style={styles.statSubtext}>
-            {totalDistance.toFixed(1)} km total distance
-          </Text>
+          <Route size={14} color={theme.colors.dark.success} />
+          <Text style={styles.statValue}>{uniqueRoadsKm.toFixed(0)} km</Text>
+          <Text style={styles.statLabel}>Explored</Text>
         </View>
-      </View>
 
-      <View style={[styles.infoCard, { bottom: 120 }]}>
-        <Info size={14} color={theme.colors.dark.textSecondary} />
-        <Text style={styles.infoText}>
-          Road Coverage = % of unique roads driven. Based on estimated {(ESTIMATED_WORLD_ROADS_KM / 1000000).toFixed(0)}M km of roads worldwide.
-        </Text>
-      </View>
-
-      <View style={[styles.infoCard, { bottom: 80 }]}>
-        <Calendar size={14} color={theme.colors.dark.textSecondary} />
-        <Text style={styles.infoText}>
-          {selectedPeriod === 'all' 
-            ? 'Showing all recorded routes' 
-            : `Showing routes from ${selectedPeriod === 'daily' ? 'today' : selectedPeriod === 'weekly' ? 'this week' : 'this month'}`}
-        </Text>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{filteredTrips.length}</Text>
+          <Text style={styles.statLabel}>Trips</Text>
+        </View>
       </View>
     </View>
   );
@@ -334,75 +268,30 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     position: 'absolute',
-    bottom: 160,
-    left: theme.spacing.lg,
-    right: theme.spacing.lg,
+    bottom: 100,
+    left: theme.spacing.md,
+    right: theme.spacing.md,
     flexDirection: 'row',
-    gap: theme.spacing.md,
+    gap: theme.spacing.xs,
   },
   statCard: {
     flex: 1,
-    backgroundColor: 'rgba(18, 18, 18, 0.95)',
-    borderRadius: theme.borderRadius.xl,
-    padding: theme.spacing.md,
+    backgroundColor: 'rgba(18, 18, 18, 0.9)',
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.sm,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  statHeader: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.xs,
-    marginBottom: theme.spacing.xs,
+    gap: 2,
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: theme.colors.dark.textSecondary,
     fontWeight: '600' as const,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   statValue: {
-    fontSize: 22,
+    fontSize: 16,
     fontWeight: '700' as const,
-    color: theme.colors.dark.accent,
-  },
-  statSubtext: {
-    fontSize: 11,
-    color: theme.colors.dark.textTertiary,
-    marginTop: theme.spacing.xs,
-  },
-  infoCard: {
-    position: 'absolute',
-    left: theme.spacing.lg,
-    right: theme.spacing.lg,
-    backgroundColor: 'rgba(18, 18, 18, 0.9)',
-    borderRadius: theme.borderRadius.lg,
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  infoText: {
-    fontSize: 12,
-    color: theme.colors.dark.textSecondary,
-    flex: 1,
-  },
-  progressContainer: {
-    marginTop: theme.spacing.xs,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginBottom: theme.spacing.xs,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: theme.colors.dark.accent,
-    borderRadius: 2,
+    color: theme.colors.dark.text,
   },
 });

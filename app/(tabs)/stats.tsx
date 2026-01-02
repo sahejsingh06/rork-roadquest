@@ -1,12 +1,14 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, View, ScrollView } from 'react-native';
-import { BarChart3, Clock, Route, Zap, Gauge, Timer, TrendingUp, Calendar } from 'lucide-react-native';
+import { StyleSheet, Text, View, ScrollView, Pressable } from 'react-native';
+import { BarChart3, Clock, Route, Zap, Gauge, Timer, TrendingUp, Calendar, Globe } from 'lucide-react-native';
 import { useTrip } from '@/contexts/TripContext';
 import { theme } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 
 export default function StatsScreen() {
   const { stats, trips, useKmh } = useTrip();
+  const router = useRouter();
 
   const highSpeedThreshold = 100;
 
@@ -79,6 +81,17 @@ export default function StatsScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        <Pressable 
+          style={styles.worldMapButton}
+          onPress={() => router.push('/world-map')}
+        >
+          <Globe size={24} color={theme.colors.dark.accent} />
+          <View style={styles.worldMapButtonText}>
+            <Text style={styles.worldMapButtonTitle}>World Coverage Map</Text>
+            <Text style={styles.worldMapButtonSubtitle}>View your explored roads</Text>
+          </View>
+        </Pressable>
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Overview</Text>
           <View style={styles.statsGrid}>
@@ -226,10 +239,34 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing.xxl,
   },
+  worldMapButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(10, 132, 255, 0.1)',
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(10, 132, 255, 0.3)',
+    marginBottom: theme.spacing.xl,
+    gap: theme.spacing.md,
+  },
+  worldMapButtonText: {
+    flex: 1,
+  },
+  worldMapButtonTitle: {
+    ...theme.typography.headline,
+    color: theme.colors.dark.text,
+    fontWeight: '600' as const,
+  },
+  worldMapButtonSubtitle: {
+    ...theme.typography.subheadline,
+    color: theme.colors.dark.textSecondary,
+    marginTop: 2,
+  },
   section: {
-    paddingHorizontal: theme.spacing.lg,
     marginTop: theme.spacing.xl,
   },
   sectionHeader: {

@@ -115,6 +115,8 @@ export default function DriveScreen() {
   const handleStartDrive = () => {
     if (userProfile && userProfile.cars.length > 0 && !selectedCar) {
       setShowCarSelector(true);
+    } else if (selectedCar) {
+      startTrip(selectedCar.id, selectedCar.brand, selectedCar.model, selectedCar.icon);
     } else {
       startTrip();
     }
@@ -123,7 +125,6 @@ export default function DriveScreen() {
   const handleSelectCar = (car: Car) => {
     setSelectedCar(car);
     setShowCarSelector(false);
-    startTrip(car.id, car.brand, car.model, car.icon);
   };
 
   const displaySpeed = useKmh ? currentSpeed : currentSpeed * 0.621371;
@@ -169,18 +170,19 @@ export default function DriveScreen() {
           style={styles.preStartContainer}
         >
           <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
-            <ScrollView 
-              style={styles.preStartScroll}
-              contentContainerStyle={styles.preStartContent}
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.greetingSection}>
-                <Text style={styles.greeting}>
-                  {getGreeting()}{userProfile ? `, ${userProfile.username}` : ''}
-                </Text>
-              </View>
+            <View style={styles.contentWrapper}>
+              <ScrollView 
+                style={styles.preStartScroll}
+                contentContainerStyle={styles.preStartContent}
+                showsVerticalScrollIndicator={false}
+              >
+                <View style={styles.greetingSection}>
+                  <Text style={styles.greeting}>
+                    {getGreeting()}{userProfile ? `, ${userProfile.username}` : ''}
+                  </Text>
+                </View>
 
-              <View style={styles.missionCard}>
+                <View style={styles.missionCard}>
                 <View style={styles.missionHeader}>
                   <View style={styles.missionIcon}>
                     <Target size={20} color="#FFFFFF" />
@@ -263,38 +265,41 @@ export default function DriveScreen() {
                 </Pressable>
               )}
 
-              {userProfile && userProfile.cars.length > 0 && !selectedCar && (
-                <Pressable 
-                  style={styles.selectCarPrompt}
-                  onPress={() => setShowCarSelector(true)}
+                {userProfile && userProfile.cars.length > 0 && !selectedCar && (
+                  <Pressable 
+                    style={styles.selectCarPrompt}
+                    onPress={() => setShowCarSelector(true)}
+                  >
+                    <Text style={styles.selectCarText}>Select your car</Text>
+                    <ChevronRight size={20} color={theme.colors.dark.accent} />
+                  </Pressable>
+                )}
+              </ScrollView>
+
+              <View style={styles.bottomActions}>
+                <Pressable
+                  style={styles.startDriveButton}
+                  onPress={handleStartDrive}
+                  disabled={!hasPermission}
                 >
-                  <Text style={styles.selectCarText}>Select your car</Text>
-                  <ChevronRight size={20} color={theme.colors.dark.accent} />
+                  <LinearGradient
+                    colors={['#0A84FF', '#0066CC']}
+                    style={styles.startButtonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Play size={28} color="#FFFFFF" fill="#FFFFFF" />
+                    <Text style={styles.startDriveText}>Start Drive</Text>
+                  </LinearGradient>
                 </Pressable>
-              )}
 
-              <Pressable
-                style={styles.startDriveButton}
-                onPress={handleStartDrive}
-                disabled={!hasPermission}
-              >
-                <LinearGradient
-                  colors={['#0A84FF', '#0066CC']}
-                  style={styles.startButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <Play size={28} color="#FFFFFF" fill="#FFFFFF" />
-                  <Text style={styles.startDriveText}>Start Drive</Text>
-                </LinearGradient>
-              </Pressable>
-
-              {!hasPermission && (
-                <Text style={styles.permissionText}>
-                  Location permission required
-                </Text>
-              )}
-            </ScrollView>
+                {!hasPermission && (
+                  <Text style={styles.permissionText}>
+                    Location permission required
+                  </Text>
+                )}
+              </View>
+            </View>
           </SafeAreaView>
         </LinearGradient>
 
@@ -437,17 +442,21 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
+  contentWrapper: {
+    flex: 1,
+  },
   preStartScroll: {
     flex: 1,
   },
   preStartContent: {
-    paddingVertical: theme.spacing.xxl,
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.xl,
     paddingHorizontal: theme.spacing.xl,
-    gap: theme.spacing.lg,
   },
   greetingSection: {
     alignItems: 'center',
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+    marginTop: theme.spacing.md,
   },
   greeting: {
     ...theme.typography.title2,
@@ -462,6 +471,7 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     borderWidth: 1,
     borderColor: 'rgba(10, 132, 255, 0.3)',
+    marginBottom: theme.spacing.md,
   },
   missionHeader: {
     flexDirection: 'row',
@@ -512,6 +522,7 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     borderWidth: 1,
     borderColor: theme.colors.dark.border,
+    marginBottom: theme.spacing.md,
   },
   lastDriveHeader: {
     flexDirection: 'row',
@@ -555,6 +566,7 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     borderWidth: 1,
     borderColor: 'rgba(48, 209, 88, 0.3)',
+    marginBottom: theme.spacing.md,
   },
   roadCoverageTeaserHeader: {
     flexDirection: 'row',
@@ -590,6 +602,7 @@ const styles = StyleSheet.create({
     gap: theme.spacing.md,
     borderWidth: 1,
     borderColor: theme.colors.dark.border,
+    marginBottom: theme.spacing.md,
   },
   selectedCarIcon: {
     fontSize: 40,
@@ -616,11 +629,17 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     borderWidth: 1,
     borderColor: 'rgba(10, 132, 255, 0.3)',
+    marginBottom: theme.spacing.md,
   },
   selectCarText: {
     ...theme.typography.headline,
     color: theme.colors.dark.accent,
     fontWeight: '600' as const,
+  },
+  bottomActions: {
+    paddingHorizontal: theme.spacing.xl,
+    paddingBottom: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
   },
   startDriveButton: {
     borderRadius: theme.borderRadius.xl,

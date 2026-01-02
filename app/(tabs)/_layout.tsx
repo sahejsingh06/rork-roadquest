@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { Navigation, Clock, User, Globe, BarChart3, Trophy } from "lucide-react-native";
+import { Navigation, Clock, User, BarChart3, Trophy, Target } from "lucide-react-native";
 import React from "react";
 import { theme } from "@/constants/theme";
 
@@ -33,10 +33,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="world-map"
+        name="missions"
         options={{
-          title: "World Map",
-          tabBarIcon: ({ color, size }) => <Globe color={color} size={size} />,
+          title: "Missions",
+          tabBarIcon: ({ color, size }) => <Target color={color} size={size} />,
         }}
       />
       <Tabs.Screen
@@ -58,6 +58,12 @@ export default function TabLayout() {
         options={{
           title: "Profile",
           tabBarIcon: ({ color, size }) => <User color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="world-map"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

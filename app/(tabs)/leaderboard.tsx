@@ -8,7 +8,6 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Trophy, TrendingUp, TrendingDown, Minus, Crown } from 'lucide-react-native';
 import { theme } from '@/constants/theme';
 import { useUser } from '@/contexts/UserContext';
@@ -29,53 +28,6 @@ export default function LeaderboardScreen() {
 
 
   const leaderboardData = useMemo(() => {
-    const mockEntries: LeaderboardEntry[] = [
-      {
-        rank: 1,
-        userId: '1',
-        username: 'SpeedDemon',
-        photoUrl: undefined,
-        region: 'United States',
-        value: selectedType === 'distance' ? 2847 : selectedType === 'coverage' ? 2.4 : selectedType === 'gpsPoints' ? 2847 : 47,
-        change: 2,
-      },
-      {
-        rank: 2,
-        userId: '2',
-        username: 'RoadWarrior',
-        photoUrl: undefined,
-        region: 'United Kingdom',
-        value: selectedType === 'distance' ? 2654 : selectedType === 'coverage' ? 2.1 : selectedType === 'gpsPoints' ? 2654 : 42,
-        change: -1,
-      },
-      {
-        rank: 3,
-        userId: '3',
-        username: 'NightDriver',
-        photoUrl: undefined,
-        region: 'Germany',
-        value: selectedType === 'distance' ? 2431 : selectedType === 'coverage' ? 1.9 : selectedType === 'gpsPoints' ? 2431 : 38,
-        change: 1,
-      },
-      {
-        rank: 4,
-        userId: '4',
-        username: 'HighwayKing',
-        photoUrl: undefined,
-        region: 'Canada',
-        value: selectedType === 'distance' ? 2198 : selectedType === 'coverage' ? 1.7 : selectedType === 'gpsPoints' ? 2198 : 35,
-        change: 0,
-      },
-      {
-        rank: 5,
-        userId: '5',
-        username: 'CruiseControl',
-        photoUrl: undefined,
-        region: 'Australia',
-        value: selectedType === 'distance' ? 2076 : selectedType === 'coverage' ? 1.5 : selectedType === 'gpsPoints' ? 2076 : 32,
-        change: 3,
-      },
-    ];
 
     let totalDistance = 0;
     let totalGPSPoints = 0;
@@ -112,10 +64,8 @@ export default function LeaderboardScreen() {
       currentUserValue = 0.8;
     }
 
-    const currentUserRank = mockEntries.length + 1;
-
     const currentUserEntry: LeaderboardEntry = {
-      rank: currentUserRank,
+      rank: 1,
       userId: userProfile?.id || 'current',
       username: userProfile?.username || 'You',
       photoUrl: userProfile?.photoUrl,
@@ -125,7 +75,7 @@ export default function LeaderboardScreen() {
     };
 
     return {
-      entries: mockEntries,
+      entries: [],
       currentUserEntry,
     };
   }, [selectedType, selectedPeriod, trips, userProfile]);
@@ -434,84 +384,27 @@ export default function LeaderboardScreen() {
           </Text>
         </View>
 
-        <View style={styles.podium}>
-          {leaderboardData.entries.slice(0, 3).map((entry, index) => {
-            const heights = [160, 200, 140];
-            const positions = [1, 0, 2];
-            const actualIndex = positions.indexOf(index);
-            const actualEntry = leaderboardData.entries[actualIndex];
-
-            return (
-              <View
-                key={actualEntry.userId}
-                style={[
-                  styles.podiumPlace,
-                  { height: heights[actualIndex] },
-                ]}
-              >
-                <View style={styles.podiumAvatar}>
-                  {actualEntry.photoUrl ? (
-                    <Image
-                      source={{ uri: actualEntry.photoUrl }}
-                      style={styles.podiumAvatarImage}
-                    />
-                  ) : (
-                    <View style={styles.podiumAvatarPlaceholder}>
-                      <Text style={styles.podiumAvatarText}>
-                        {actualEntry.username.charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-                  )}
-                  {actualEntry.rank === 1 && (
-                    <View style={styles.crownBadge}>
-                      <Crown size={16} color="#FFD700" fill="#FFD700" />
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.podiumUsername} numberOfLines={1}>
-                  {actualEntry.username}
-                </Text>
-                <Text style={styles.podiumValue}>
-                  {formatValue(actualEntry.value, selectedType)}
-                </Text>
-                <Text style={styles.podiumUnit}>{getValueLabel(selectedType)}</Text>
-                <LinearGradient
-                  colors={
-                    actualEntry.rank === 1
-                      ? ['#FFD700', '#FFA500']
-                      : actualEntry.rank === 2
-                      ? ['#C0C0C0', '#808080']
-                      : ['#CD7F32', '#8B4513']
-                  }
-                  style={styles.podiumBase}
-                >
-                  <Text style={styles.podiumRank}>#{actualEntry.rank}</Text>
-                </LinearGradient>
-              </View>
-            );
-          })}
+        <View style={styles.infoNotice}>
+          <Trophy size={24} color={theme.colors.dark.accent} />
+          <Text style={styles.infoNoticeTitle}>Coming Soon: Global Leaderboards</Text>
+          <Text style={styles.infoNoticeText}>
+            Connect with drivers worldwide and compete on the global leaderboard. This feature will be available when the app connects to our servers.
+          </Text>
         </View>
 
         {leaderboardData.currentUserEntry && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Your Ranking</Text>
+            <Text style={styles.sectionTitle}>Your Stats</Text>
             {renderLeaderboardEntry(leaderboardData.currentUserEntry, true)}
           </View>
         )}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Top Drivers</Text>
-          {leaderboardData.entries.slice(3).map((entry) =>
-            renderLeaderboardEntry(entry)
-          )}
-        </View>
-
         <View style={styles.infoBox}>
           <Text style={styles.infoText}>
-            Leaderboards reset every {selectedPeriod === 'weekly' ? 'Monday' : selectedPeriod === 'monthly' ? 'month' : selectedPeriod === 'season' ? '30 days' : 'never'}
+            Your stats are calculated from your trips. Leaderboards will reset every {selectedPeriod === 'weekly' ? 'Monday' : selectedPeriod === 'monthly' ? 'month' : selectedPeriod === 'season' ? '30 days' : 'never'} when global rankings are available.
           </Text>
           <Text style={styles.infoSubtext}>
-            Drive safe and explore new roads to climb the ranks
+            Keep driving to improve your stats and prepare for global competition!
           </Text>
         </View>
       </ScrollView>
@@ -783,6 +676,30 @@ const styles = StyleSheet.create({
     ...theme.typography.footnote,
     color: theme.colors.dark.textSecondary,
     fontWeight: '400' as const,
+  },
+  infoNotice: {
+    marginTop: theme.spacing.xl,
+    marginHorizontal: theme.spacing.md,
+    padding: theme.spacing.xl,
+    backgroundColor: theme.colors.dark.card,
+    borderRadius: theme.borderRadius.xl,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.dark.border,
+  },
+  infoNoticeTitle: {
+    ...theme.typography.title3,
+    color: theme.colors.dark.text,
+    fontWeight: '600' as const,
+    marginTop: theme.spacing.md,
+    textAlign: 'center',
+  },
+  infoNoticeText: {
+    ...theme.typography.subheadline,
+    color: theme.colors.dark.textSecondary,
+    marginTop: theme.spacing.sm,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   infoBox: {
     marginTop: theme.spacing.xl,
