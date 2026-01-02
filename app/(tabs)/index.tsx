@@ -1,15 +1,17 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { StyleSheet, Text, View, Pressable, Platform, ScrollView, Modal, Share, Animated } from 'react-native';
 import MapView, { Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import { Play, Square, ChevronRight, Target, TrendingUp, Share2, Map, Trophy, Route as RouteIcon, Navigation, X, Zap } from 'lucide-react-native';
+import { Play, Square, ChevronRight, Target, TrendingUp, Share2, Map, Trophy, Route as RouteIcon, Navigation, X, Zap, ShoppingBag } from 'lucide-react-native';
 import { useTrip } from '@/contexts/TripContext';
 import { useUser } from '@/contexts/UserContext';
 import { theme } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Car } from '@/types/user';
+import { useRouter } from 'expo-router';
 
 export default function DriveScreen() {
+  const router = useRouter();
   const {
     isTracking,
     currentTrip,
@@ -210,10 +212,14 @@ export default function DriveScreen() {
                   <Text style={styles.greeting}>
                     {getGreeting()}{userProfile ? `, ${userProfile.username}` : ''}
                   </Text>
-                  <View style={styles.gpsPointsBadge}>
+                  <Pressable 
+                    style={styles.gpsPointsBadge}
+                    onPress={() => router.push('/gp-store')}
+                  >
                     <Zap size={16} color="#FFD700" fill="#FFD700" />
                     <Text style={styles.gpsPointsText}>{totalGPSPoints} GPS Points</Text>
-                  </View>
+                    <ShoppingBag size={14} color="#FFD700" />
+                  </Pressable>
                 </View>
 
                 <View style={styles.missionCard}>

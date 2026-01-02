@@ -7,6 +7,7 @@ import { StatusBar } from "expo-status-bar";
 import { TripProvider } from "@/contexts/TripContext";
 import { UserProvider } from "@/contexts/UserContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { StoreProvider } from "@/contexts/StoreContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -57,6 +58,13 @@ function RootLayoutNav() {
             headerShown: false,
           }} 
         />
+        <Stack.Screen 
+          name="gp-store" 
+          options={{ 
+            headerShown: false,
+            presentation: 'modal',
+          }} 
+        />
       </Stack>
     </>
   );
@@ -67,11 +75,13 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <UserProvider>
-          <TripProvider>
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <RootLayoutNav />
-            </GestureHandlerRootView>
-          </TripProvider>
+          <StoreProvider>
+            <TripProvider>
+              <GestureHandlerRootView style={{ flex: 1 }}>
+                <RootLayoutNav />
+              </GestureHandlerRootView>
+            </TripProvider>
+          </StoreProvider>
         </UserProvider>
       </AuthProvider>
     </QueryClientProvider>

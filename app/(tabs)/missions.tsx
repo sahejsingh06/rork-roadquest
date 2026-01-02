@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Target, Clock, CheckCircle2, Trophy, Zap, Navigation, Moon, TrendingUp } from 'lucide-react-native';
+import { Target, Clock, CheckCircle2, Trophy, Zap, Navigation, Moon, TrendingUp, ShoppingBag } from 'lucide-react-native';
 import { theme } from '@/constants/theme';
 import { useTrip } from '@/contexts/TripContext';
 
@@ -21,6 +22,7 @@ interface Mission {
 }
 
 export default function MissionsScreen() {
+  const router = useRouter();
   const { trips } = useTrip();
   const [selectedPeriod, setSelectedPeriod] = useState<MissionPeriod>('daily');
 
@@ -215,6 +217,10 @@ export default function MissionsScreen() {
   const completedCount = missions.filter(m => m.completed).length;
   const totalRewards = missions.reduce((sum, m) => sum + (m.completed ? m.reward : 0), 0);
 
+  const totalGPSPoints = useMemo(() => {
+    return Math.floor(trips.reduce((sum, trip) => sum + trip.distance, 0));
+  }, [trips]);
+
   const getMissionIcon = (type: Mission['type']) => {
     switch (type) {
       case 'distance':
@@ -292,6 +298,14 @@ export default function MissionsScreen() {
             <Text style={styles.title}>Missions</Text>
             <Text style={styles.subtitle}>Complete tasks to earn GPS Points</Text>
           </View>
+          <Pressable 
+            style={styles.gpStoreBadge}
+            onPress={() => router.push('/gp-store')}
+          >
+            <Zap size={16} color="#FFD700" fill="#FFD700" />
+            <Text style={styles.gpStoreText}>{totalGPSPoints}</Text>
+            <ShoppingBag size={14} color="#FFD700" />
+          </Pressable>
         </View>
       </View>
 
@@ -583,5 +597,22 @@ const styles = StyleSheet.create({
     ...theme.typography.subheadline,
     color: theme.colors.dark.textSecondary,
     lineHeight: 22,
+  },
+  gpStoreBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 215, 0, 0.15)',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.3)',
+  },
+  gpStoreText: {
+    ...theme.typography.callout,
+    color: '#FFD700',
+    fontWeight: '700' as const,
+    fontSize: 14,
   },
 });
