@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { StyleSheet, Text, View, Pressable, Platform, ScrollView, Modal } from 'react-native';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { StyleSheet, Text, View, Pressable, Platform, ScrollView, Modal, Share } from 'react-native';
 import MapView, { Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import { Play, Square, ChevronRight } from 'lucide-react-native';
+import { Play, Square, ChevronRight, Target, TrendingUp, Share2, Map } from 'lucide-react-native';
 import { useTrip } from '@/contexts/TripContext';
 import { useUser } from '@/contexts/UserContext';
 import { theme } from '@/constants/theme';
@@ -20,6 +20,8 @@ export default function DriveScreen() {
     startTrip,
     stopTrip,
     toggleUnit,
+    trips,
+    stats,
   } = useTrip();
 
   const { userProfile } = useUser();
@@ -27,6 +29,30 @@ export default function DriveScreen() {
   const [showCarSelector, setShowCarSelector] = useState(false);
   const [displayDuration, setDisplayDuration] = useState(0);
   const durationInterval = useRef<number | null>(null);
+
+  const lastTrip = useMemo(() => {
+    if (trips.length === 0) return null;
+    return trips[0];
+  }, [trips]);
+
+  const todayMission = useMemo(() => {
+    const today = new Date();
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+    const todayTrips = trips.filter(trip => trip.startTime >= startOfDay);
+    const todayDistance = todayTrips.reduce((sum, trip) => sum + trip.distance, 0);
+    
+    const missionTarget = 5;
+    const progress = Math.min((todayDistance / missionTarget) * 100, 100);
+    const remaining = Math.max(0, missionTarget - todayDistance);
+    
+    return {
+      target: missionTarget,
+      current: todayDistance,
+      progress,
+      remaining,
+      pointsToEarn: Math.floor(missionTarget - todayDistance),
+    };
+  }, [trips]);
 
   const [region, setRegion] = useState({
     latitude: 37.78825,
@@ -97,11 +123,43 @@ export default function DriveScreen() {
   const handleSelectCar = (car: Car) => {
     setSelectedCar(car);
     setShowCarSelector(false);
-    startTrip();
+    startTrip(car.id, car.brand, car.model, car.icon);
   };
 
   const displaySpeed = useKmh ? currentSpeed : currentSpeed * 0.621371;
   const speedUnit = useKmh ? 'km/h' : 'mph';
+
+  const formatDurationShort = (ms: number) => {
+    const minutes = Math.floor(ms / (1000 * 60));
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    
+    if (hours > 0) {
+      return `${hours}h ${remainingMinutes}m`;
+    }
+    return `${minutes}m`;
+  };
+
+  const handleShareLastDrive = async () => {
+    if (!lastTrip) return;
+    
+    const message = `🚗 Just completed a drive on RoadQuest!
+
+📍 Distance: ${lastTrip.distance.toFixed(1)} km
+⚡ Avg Speed: ${Math.round(useKmh ? lastTrip.avgSpeed : lastTrip.avgSpeed * 0.621371)} ${useKmh ? 'km/h' : 'mph'}
+⏱️ Duration: ${formatDurationShort(lastTrip.duration)}
+🏆 GPS Points: +${Math.floor(lastTrip.distance)}`;
+
+    try {
+      if (Platform.OS === 'web') {
+        await navigator.share({ text: message });
+      } else {
+        await Share.share({ message });
+      }
+    } catch (error) {
+      console.log('Error sharing:', error);
+    }
+  };
 
   if (!isTracking) {
     return (
@@ -111,12 +169,84 @@ export default function DriveScreen() {
           style={styles.preStartContainer}
         >
           <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
-            <View style={styles.preStartContent}>
+            <ScrollView 
+              style={styles.preStartScroll}
+              contentContainerStyle={styles.preStartContent}
+              showsVerticalScrollIndicator={false}
+            >
               <View style={styles.greetingSection}>
                 <Text style={styles.greeting}>
                   {getGreeting()}{userProfile ? `, ${userProfile.username}` : ''}
                 </Text>
-                <Text style={styles.greetingSubtext}>Ready to hit the road?</Text>
+              </View>
+
+              <View style={styles.missionCard}>
+                <View style={styles.missionHeader}>
+                  <View style={styles.missionIcon}>
+                    <Target size={20} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.missionTitle}>Today&apos;s Mission</Text>
+                </View>
+                <Text style={styles.missionDescription}>
+                  Drive {todayMission.remaining.toFixed(1)} km more to earn +{todayMission.pointsToEarn} GPS points
+                </Text>
+                <View style={styles.missionProgressContainer}>
+                  <View style={styles.missionProgressBar}>
+                    <LinearGradient
+                      colors={['#0A84FF', '#0066CC']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={[styles.missionProgressFill, { width: `${todayMission.progress}%` }]}
+                    />
+                  </View>
+                  <Text style={styles.missionProgressText}>
+                    {todayMission.current.toFixed(1)} / {todayMission.target} km
+                  </Text>
+                </View>
+              </View>
+
+              {lastTrip && (
+                <View style={styles.lastDriveCard}>
+                  <View style={styles.lastDriveHeader}>
+                    <View style={styles.lastDriveHeaderLeft}>
+                      <TrendingUp size={18} color={theme.colors.dark.accent} />
+                      <Text style={styles.lastDriveTitle}>Last Drive</Text>
+                    </View>
+                    <Pressable onPress={handleShareLastDrive} style={styles.shareButton}>
+                      <Share2 size={18} color={theme.colors.dark.accent} />
+                    </Pressable>
+                  </View>
+                  <View style={styles.lastDriveStats}>
+                    <View style={styles.lastDriveStat}>
+                      <Text style={styles.lastDriveValue}>{lastTrip.distance.toFixed(1)} km</Text>
+                      <Text style={styles.lastDriveLabel}>Distance</Text>
+                    </View>
+                    <View style={styles.lastDriveStat}>
+                      <Text style={styles.lastDriveValue}>
+                        {Math.round(useKmh ? lastTrip.avgSpeed : lastTrip.avgSpeed * 0.621371)} {useKmh ? 'km/h' : 'mph'}
+                      </Text>
+                      <Text style={styles.lastDriveLabel}>Avg Speed</Text>
+                    </View>
+                    <View style={styles.lastDriveStat}>
+                      <Text style={styles.lastDriveValue}>+{Math.floor(lastTrip.distance)}</Text>
+                      <Text style={styles.lastDriveLabel}>GPS Points</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              <View style={styles.roadCoverageTeaser}>
+                <View style={styles.roadCoverageTeaserHeader}>
+                  <Map size={16} color={theme.colors.dark.success} />
+                  <Text style={styles.roadCoverageTeaserTitle}>Explore Nearby Roads</Text>
+                </View>
+                <Text style={styles.roadCoverageTeaserText}>
+                  Discover new routes and earn more GPS points
+                </Text>
+                <View style={styles.roadCoverageTeaserStats}>
+                  <Text style={styles.roadCoverageTeaserStat}>🗺️ {trips.length} routes tracked</Text>
+                  <Text style={styles.roadCoverageTeaserStat}>📍 {stats.totalDistance.toFixed(0)} km explored</Text>
+                </View>
               </View>
 
               {selectedCar && (
@@ -164,7 +294,7 @@ export default function DriveScreen() {
                   Location permission required
                 </Text>
               )}
-            </View>
+            </ScrollView>
           </SafeAreaView>
         </LinearGradient>
 
@@ -307,28 +437,149 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  preStartContent: {
+  preStartScroll: {
     flex: 1,
-    justifyContent: 'center',
+  },
+  preStartContent: {
+    paddingVertical: theme.spacing.xxl,
     paddingHorizontal: theme.spacing.xl,
-    gap: theme.spacing.xl,
+    gap: theme.spacing.lg,
   },
   greetingSection: {
     alignItems: 'center',
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
   },
   greeting: {
-    ...theme.typography.title1,
+    ...theme.typography.title2,
     color: theme.colors.dark.text,
     fontWeight: '700' as const,
     textAlign: 'center',
-    fontSize: 38,
+    fontSize: 28,
   },
-  greetingSubtext: {
-    ...theme.typography.title3,
+  missionCard: {
+    backgroundColor: 'rgba(10, 132, 255, 0.1)',
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(10, 132, 255, 0.3)',
+  },
+  missionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+  },
+  missionIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: theme.colors.dark.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  missionTitle: {
+    ...theme.typography.headline,
+    color: theme.colors.dark.text,
+    fontWeight: '700' as const,
+  },
+  missionDescription: {
+    ...theme.typography.subheadline,
     color: theme.colors.dark.textSecondary,
-    marginTop: theme.spacing.sm,
-    textAlign: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  missionProgressContainer: {
+    gap: theme.spacing.xs,
+  },
+  missionProgressBar: {
+    height: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  missionProgressFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  missionProgressText: {
+    ...theme.typography.caption1,
+    color: theme.colors.dark.accent,
+    fontWeight: '600' as const,
+    textAlign: 'right',
+  },
+  lastDriveCard: {
+    backgroundColor: 'rgba(28, 28, 30, 0.8)',
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.dark.border,
+  },
+  lastDriveHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  lastDriveHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  lastDriveTitle: {
+    ...theme.typography.headline,
+    color: theme.colors.dark.text,
+    fontWeight: '600' as const,
+  },
+  shareButton: {
+    padding: theme.spacing.xs,
+  },
+  lastDriveStats: {
+    flexDirection: 'row',
+    gap: theme.spacing.lg,
+  },
+  lastDriveStat: {
+    flex: 1,
+  },
+  lastDriveValue: {
+    ...theme.typography.title3,
+    color: theme.colors.dark.text,
+    fontWeight: '700' as const,
+  },
+  lastDriveLabel: {
+    ...theme.typography.caption1,
+    color: theme.colors.dark.textSecondary,
+    marginTop: theme.spacing.xs,
+  },
+  roadCoverageTeaser: {
+    backgroundColor: 'rgba(48, 209, 88, 0.1)',
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(48, 209, 88, 0.3)',
+  },
+  roadCoverageTeaserHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
+  },
+  roadCoverageTeaserTitle: {
+    ...theme.typography.headline,
+    color: theme.colors.dark.text,
+    fontWeight: '600' as const,
+  },
+  roadCoverageTeaserText: {
+    ...theme.typography.subheadline,
+    color: theme.colors.dark.textSecondary,
+    marginBottom: theme.spacing.md,
+  },
+  roadCoverageTeaserStats: {
+    flexDirection: 'row',
+    gap: theme.spacing.lg,
+  },
+  roadCoverageTeaserStat: {
+    ...theme.typography.callout,
+    color: theme.colors.dark.text,
+    fontWeight: '600' as const,
   },
   selectedCarCard: {
     flexDirection: 'row',

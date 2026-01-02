@@ -139,7 +139,7 @@ export const [TripProvider, useTrip] = createContextHook(() => {
     return R * c;
   };
 
-  const startTrip = useCallback(async () => {
+  const startTrip = useCallback(async (carId?: string, carBrand?: string, carModel?: string, carIcon?: string) => {
     console.log('startTrip called, hasPermission:', hasPermission, 'isTracking:', isTracking);
     
     if (isTracking) {
@@ -164,6 +164,10 @@ export const [TripProvider, useTrip] = createContextHook(() => {
       locations: [],
       isPaused: false,
       pausedDuration: 0,
+      carId,
+      carBrand,
+      carModel,
+      carIcon,
     };
 
     console.log('Creating new trip:', newTrip.id);

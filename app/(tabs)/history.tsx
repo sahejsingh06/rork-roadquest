@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { StyleSheet, Text, View, ScrollView, Pressable, Alert, Platform } from 'react-native';
 import { router } from 'expo-router';
-import { Trash2, ChevronRight, TrendingUp, Route, Clock, Zap } from 'lucide-react-native';
+import { Trash2, ChevronRight, TrendingUp, Route, Clock, Zap, Car as CarIcon } from 'lucide-react-native';
 import { useTrip } from '@/contexts/TripContext';
+import { useUser } from '@/contexts/UserContext';
 import { theme } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -10,7 +11,9 @@ type TimePeriod = 'daily' | 'weekly' | 'monthly' | 'all';
 
 export default function HistoryScreen() {
   const { trips, deleteTrip, useKmh } = useTrip();
+  const { userProfile } = useUser();
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('all');
+  const [selectedCarId, setSelectedCarId] = useState<string | null>(null);
 
   const filteredTrips = useMemo(() => {
     const now = new Date();
@@ -18,17 +21,28 @@ export default function HistoryScreen() {
     const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay()).getTime();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 
+    let filtered = trips;
+
     switch (selectedPeriod) {
       case 'daily':
-        return trips.filter(trip => trip.startTime >= startOfDay);
+        filtered = trips.filter(trip => trip.startTime >= startOfDay);
+        break;
       case 'weekly':
-        return trips.filter(trip => trip.startTime >= startOfWeek);
+        filtered = trips.filter(trip => trip.startTime >= startOfWeek);
+        break;
       case 'monthly':
-        return trips.filter(trip => trip.startTime >= startOfMonth);
+        filtered = trips.filter(trip => trip.startTime >= startOfMonth);
+        break;
       default:
-        return trips;
+        filtered = trips;
     }
-  }, [trips, selectedPeriod]);
+
+    if (selectedCarId) {
+      filtered = filtered.filter(trip => trip.carId === selectedCarId);
+    }
+
+    return filtered;
+  }, [trips, selectedPeriod, selectedCarId]);
 
   const periodStats = useMemo(() => {
     const totalDistance = filteredTrips.reduce((sum, trip) => sum + trip.distance, 0);
@@ -127,6 +141,41 @@ export default function HistoryScreen() {
           ))}
         </View>
 
+        {userProfile && userProfile.cars.length > 0 && (
+          <View style={styles.carFilterContainer}>
+            <View style={styles.carFilterHeader}>
+              <CarIcon size={16} color={theme.colors.dark.textSecondary} />
+              <Text style={styles.carFilterLabel}>Filter by car</Text>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.carFilterScroll}
+            >
+              {userProfile.cars.map((car) => (
+                <Pressable
+                  key={car.id}
+                  style={[
+                    styles.carFilterChip,
+                    selectedCarId === car.id && styles.carFilterChipActive,
+                  ]}
+                  onPress={() => setSelectedCarId(selectedCarId === car.id ? null : car.id)}
+                >
+                  <Text style={styles.carFilterIcon}>{car.icon}</Text>
+                  <Text
+                    style={[
+                      styles.carFilterText,
+                      selectedCarId === car.id && styles.carFilterTextActive,
+                    ]}
+                  >
+                    {car.brand}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
         <View style={styles.periodStatsContainer}>
           <View style={styles.periodStatItem}>
             <Route size={16} color={theme.colors.dark.accent} />
@@ -168,7 +217,10 @@ export default function HistoryScreen() {
                 onPress={() => router.push({ pathname: '/trip-summary/[id]', params: { id: trip.id } })}
               >
                 <View style={styles.tripHeader}>
-                  <Text style={styles.tripDate}>{formatDate(trip.startTime)}</Text>
+                  <View style={styles.tripHeaderLeft}>
+                    {trip.carIcon && <Text style={styles.tripCarIcon}>{trip.carIcon}</Text>}
+                    <Text style={styles.tripDate}>{formatDate(trip.startTime)}</Text>
+                  </View>
                   <ChevronRight size={20} color={theme.colors.dark.textSecondary} />
                 </View>
 
@@ -313,9 +365,63 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: theme.spacing.md,
   },
+  tripHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  tripCarIcon: {
+    fontSize: 18,
+  },
   tripDate: {
     ...theme.typography.callout,
     color: theme.colors.dark.textSecondary,
+  },
+  carFilterContainer: {
+    paddingHorizontal: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
+  },
+  carFilterHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    marginBottom: theme.spacing.sm,
+  },
+  carFilterLabel: {
+    ...theme.typography.caption1,
+    color: theme.colors.dark.textSecondary,
+    textTransform: 'uppercase',
+    fontWeight: '600' as const,
+    letterSpacing: 0.5,
+  },
+  carFilterScroll: {
+    gap: theme.spacing.sm,
+  },
+  carFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    backgroundColor: theme.colors.dark.card,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: 1,
+    borderColor: theme.colors.dark.border,
+  },
+  carFilterChipActive: {
+    backgroundColor: theme.colors.dark.accent,
+    borderColor: theme.colors.dark.accent,
+  },
+  carFilterIcon: {
+    fontSize: 16,
+  },
+  carFilterText: {
+    ...theme.typography.callout,
+    color: theme.colors.dark.textSecondary,
+    fontWeight: '600' as const,
+  },
+  carFilterTextActive: {
+    color: '#FFFFFF',
   },
   tripStats: {
     flexDirection: 'row',

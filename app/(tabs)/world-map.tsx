@@ -4,7 +4,7 @@ import MapView, { Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useTrip } from '@/contexts/TripContext';
 import { theme } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Globe, Route, Calendar } from 'lucide-react-native';
+import { Globe, Route, Calendar, Info } from 'lucide-react-native';
 
 const MILESTONES = [
   { km: 100, label: '100 km' },
@@ -15,6 +15,8 @@ const MILESTONES = [
   { km: 50000, label: '50,000 km' },
   { km: 100000, label: '100,000 km' },
 ];
+
+const ESTIMATED_WORLD_ROADS_KM = 64000000;
 
 type TimePeriod = 'daily' | 'weekly' | 'monthly' | 'all';
 
@@ -40,9 +42,10 @@ export default function WorldMapScreen() {
     }
   }, [trips, selectedPeriod]);
 
-  const { totalDistance, routeColors } = useMemo(() => {
+  const { totalDistance, routeColors, uniqueRoadsKm } = useMemo(() => {
     let distance = 0;
     const colors: string[] = [];
+    const roadSegments = new Set<string>();
 
     filteredTrips.forEach((trip, index) => {
       distance += trip.distance;
@@ -50,12 +53,26 @@ export default function WorldMapScreen() {
       if (trip.locations.length > 0) {
         const hue = (index * 137.5) % 360;
         colors.push(`hsl(${hue}, 70%, 60%)`);
+
+        for (let i = 0; i < trip.locations.length - 1; i++) {
+          const loc1 = trip.locations[i];
+          const loc2 = trip.locations[i + 1];
+          const lat1 = Math.round(loc1.latitude * 1000) / 1000;
+          const lon1 = Math.round(loc1.longitude * 1000) / 1000;
+          const lat2 = Math.round(loc2.latitude * 1000) / 1000;
+          const lon2 = Math.round(loc2.longitude * 1000) / 1000;
+          const segmentKey = `${lat1},${lon1}-${lat2},${lon2}`;
+          roadSegments.add(segmentKey);
+        }
       }
     });
+
+    const uniqueRoadsEstimate = roadSegments.size * 0.05;
 
     return {
       totalDistance: distance,
       routeColors: colors,
+      uniqueRoadsKm: uniqueRoadsEstimate,
     };
   }, [filteredTrips]);
 
@@ -120,9 +137,11 @@ export default function WorldMapScreen() {
     return MILESTONES[MILESTONES.length - 1];
   };
 
-  const nextMilestone = getNextMilestone(totalDistance);
-  const currentMilestone = getCurrentMilestone(totalDistance);
-  const progressToNext = nextMilestone ? Math.min((totalDistance / nextMilestone.km) * 100, 100) : 100;
+  const nextMilestone = getNextMilestone(uniqueRoadsKm);
+  const currentMilestone = getCurrentMilestone(uniqueRoadsKm);
+  const progressToNext = nextMilestone ? Math.min((uniqueRoadsKm / nextMilestone.km) * 100, 100) : 100;
+
+  const worldCoveragePercentage = ((uniqueRoadsKm / ESTIMATED_WORLD_ROADS_KM) * 100).toFixed(6);
 
   const periods: { key: TimePeriod; label: string }[] = [
     { key: 'daily', label: 'Today' },
@@ -204,17 +223,20 @@ export default function WorldMapScreen() {
         <View style={styles.statCard}>
           <View style={styles.statHeader}>
             <Globe size={16} color={theme.colors.dark.accent} />
-            <Text style={styles.statLabel}>Distance Driven</Text>
+            <Text style={styles.statLabel}>World Road Coverage</Text>
           </View>
-          <Text style={styles.statValue}>{totalDistance.toFixed(1)} km</Text>
+          <Text style={styles.statValue}>{worldCoveragePercentage}%</Text>
+          <Text style={styles.statSubtext}>
+            {uniqueRoadsKm.toFixed(1)} km of unique roads discovered
+          </Text>
           <View style={styles.progressContainer}>
             <View style={styles.progressBar}>
               <View style={[styles.progressFill, { width: `${progressToNext}%` }]} />
             </View>
             <Text style={styles.statSubtext}>
-              {nextMilestone && totalDistance < nextMilestone.km 
-                ? `${(nextMilestone.km - totalDistance).toFixed(0)} km to ${nextMilestone.label}`
-                : currentMilestone ? `${currentMilestone.label} reached!` : 'Start driving!'}
+              {nextMilestone && uniqueRoadsKm < nextMilestone.km 
+                ? `${(nextMilestone.km - uniqueRoadsKm).toFixed(0)} km to ${nextMilestone.label}`
+                : currentMilestone ? `${currentMilestone.label} reached!` : 'Start exploring!'}
             </Text>
           </View>
         </View>
@@ -231,7 +253,14 @@ export default function WorldMapScreen() {
         </View>
       </View>
 
-      <View style={styles.infoCard}>
+      <View style={[styles.infoCard, { bottom: 120 }]}>
+        <Info size={14} color={theme.colors.dark.textSecondary} />
+        <Text style={styles.infoText}>
+          Road Coverage = % of unique roads driven. Based on estimated {(ESTIMATED_WORLD_ROADS_KM / 1000000).toFixed(0)}M km of roads worldwide.
+        </Text>
+      </View>
+
+      <View style={[styles.infoCard, { bottom: 80 }]}>
         <Calendar size={14} color={theme.colors.dark.textSecondary} />
         <Text style={styles.infoText}>
           {selectedPeriod === 'all' 
@@ -305,7 +334,7 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     position: 'absolute',
-    bottom: 120,
+    bottom: 160,
     left: theme.spacing.lg,
     right: theme.spacing.lg,
     flexDirection: 'row',
@@ -344,7 +373,6 @@ const styles = StyleSheet.create({
   },
   infoCard: {
     position: 'absolute',
-    bottom: 80,
     left: theme.spacing.lg,
     right: theme.spacing.lg,
     backgroundColor: 'rgba(18, 18, 18, 0.9)',
@@ -360,6 +388,7 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: 12,
     color: theme.colors.dark.textSecondary,
+    flex: 1,
   },
   progressContainer: {
     marginTop: theme.spacing.xs,

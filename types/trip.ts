@@ -17,6 +17,10 @@ export interface Trip {
   locations: LocationPoint[];
   isPaused: boolean;
   pausedDuration: number;
+  carId?: string;
+  carBrand?: string;
+  carModel?: string;
+  carIcon?: string;
 }
 
 export interface TripStats {
