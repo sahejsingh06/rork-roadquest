@@ -1,8 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { StyleSheet, Text, View, ScrollView, Dimensions, Platform } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import MapView, { Polyline, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import { Calendar, Clock, Zap, Fuel, Route, Gauge, Navigation } from 'lucide-react-native';
+import { Calendar, Clock, Zap, Route, Gauge, Navigation, TrendingUp, Award } from 'lucide-react-native';
 import { useTrip } from '@/contexts/TripContext';
 import { theme } from '@/constants/theme';
 
@@ -53,11 +53,58 @@ export default function TripSummaryScreen() {
 
   const maxChartSpeed = Math.max(...speedData.map(d => d.y), 1);
 
-  const estimatedFuel = useMemo(() => {
+  const gpsPoints = useMemo(() => {
     if (!trip) return 0;
-    const avgConsumption = 8;
-    return (trip.distance / 100) * avgConsumption;
+    return Math.floor(trip.distance);
   }, [trip]);
+
+  const expectedDuration = useMemo(() => {
+    if (!trip || trip.distance === 0) return 0;
+    const avgSpeedKmh = 60;
+    return (trip.distance / avgSpeedKmh) * 60 * 60 * 1000;
+  }, [trip]);
+
+  const timeDifference = useMemo(() => {
+    if (!trip) return 0;
+    return trip.duration - expectedDuration;
+  }, [trip, expectedDuration]);
+
+  const getSpeedColor = useCallback((speed: number) => {
+    const kmh = useKmh ? speed : speed / 0.621371;
+    if (kmh < 50) return '#FF3B30';
+    if (kmh < 100) return '#FF9500';
+    if (kmh < 150) return '#34C759';
+    return '#0A84FF';
+  }, [useKmh]);
+
+  const speedSegments = useMemo(() => {
+    if (!trip || trip.locations.length < 2) return [];
+    
+    const segments: { coordinates: {latitude: number, longitude: number}[], color: string }[] = [];
+    let currentSegment: {latitude: number, longitude: number}[] = [];
+    let currentColor = getSpeedColor(trip.locations[0].speed || 0);
+    
+    trip.locations.forEach((loc, index) => {
+      const color = getSpeedColor(loc.speed || 0);
+      
+      if (color === currentColor) {
+        currentSegment.push({ latitude: loc.latitude, longitude: loc.longitude });
+      } else {
+        if (currentSegment.length > 0) {
+          currentSegment.push({ latitude: loc.latitude, longitude: loc.longitude });
+          segments.push({ coordinates: [...currentSegment], color: currentColor });
+        }
+        currentSegment = [{ latitude: loc.latitude, longitude: loc.longitude }];
+        currentColor = color;
+      }
+    });
+    
+    if (currentSegment.length > 1) {
+      segments.push({ coordinates: currentSegment, color: currentColor });
+    }
+    
+    return segments;
+  }, [trip, getSpeedColor]);
 
   const startLocation = trip?.locations[0];
   const endLocation = trip?.locations[trip?.locations.length - 1];
@@ -120,16 +167,14 @@ export default function TripSummaryScreen() {
             rotateEnabled={false}
             pitchEnabled={false}
           >
-            {trip.locations.length > 1 && (
+            {speedSegments.map((segment, index) => (
               <Polyline
-                coordinates={trip.locations.map(loc => ({
-                  latitude: loc.latitude,
-                  longitude: loc.longitude,
-                }))}
-                strokeColor={theme.colors.dark.accent}
+                key={index}
+                coordinates={segment.coordinates}
+                strokeColor={segment.color}
                 strokeWidth={4}
               />
-            )}
+            ))}
             {startLocation && (
               <Marker
                 coordinate={{
@@ -206,18 +251,67 @@ export default function TripSummaryScreen() {
           <View style={styles.additionalStats}>
             <View style={styles.additionalStatRow}>
               <View style={styles.additionalStatItem}>
-                <Fuel size={18} color={theme.colors.dark.textSecondary} />
+                <Award size={18} color={theme.colors.dark.textSecondary} />
                 <View style={styles.additionalStatText}>
-                  <Text style={styles.additionalStatValue}>{estimatedFuel.toFixed(1)} L</Text>
-                  <Text style={styles.additionalStatLabel}>Est. Fuel Used</Text>
+                  <Text style={styles.additionalStatValue}>{gpsPoints}</Text>
+                  <Text style={styles.additionalStatLabel}>GPS Points Earned</Text>
                 </View>
               </View>
               <View style={styles.additionalStatItem}>
                 <Navigation size={18} color={theme.colors.dark.textSecondary} />
                 <View style={styles.additionalStatText}>
                   <Text style={styles.additionalStatValue}>{trip.locations.length}</Text>
-                  <Text style={styles.additionalStatLabel}>GPS Points</Text>
+                  <Text style={styles.additionalStatLabel}>Location Updates</Text>
                 </View>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.travelTimeCard}>
+            <View style={styles.travelTimeHeader}>
+              <TrendingUp size={20} color={theme.colors.dark.text} />
+              <Text style={styles.travelTimeTitle}>Travel Time Comparison</Text>
+            </View>
+            <View style={styles.travelTimeContent}>
+              <View style={styles.travelTimeItem}>
+                <Text style={styles.travelTimeLabel}>Expected Time</Text>
+                <Text style={styles.travelTimeValue}>{formatDuration(expectedDuration)}</Text>
+              </View>
+              <View style={styles.travelTimeDivider} />
+              <View style={styles.travelTimeItem}>
+                <Text style={styles.travelTimeLabel}>Your Time</Text>
+                <Text style={styles.travelTimeValue}>{formatDuration(trip.duration)}</Text>
+              </View>
+            </View>
+            <View style={styles.travelTimeDifference}>
+              <Text style={[
+                styles.travelTimeDifferenceText,
+                { color: timeDifference < 0 ? theme.colors.dark.success : theme.colors.dark.warning }
+              ]}>
+                {timeDifference < 0 ? '⚡ ' : '🐢 '}
+                {Math.abs(Math.round(timeDifference / 1000 / 60))} min {timeDifference < 0 ? 'faster' : 'slower'} than expected
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.speedLegend}>
+            <Text style={styles.speedLegendTitle}>Speed Ranges</Text>
+            <View style={styles.speedLegendItems}>
+              <View style={styles.speedLegendItem}>
+                <View style={[styles.speedLegendColor, { backgroundColor: '#FF3B30' }]} />
+                <Text style={styles.speedLegendText}>0-50 {useKmh ? 'km/h' : 'mph'}</Text>
+              </View>
+              <View style={styles.speedLegendItem}>
+                <View style={[styles.speedLegendColor, { backgroundColor: '#FF9500' }]} />
+                <Text style={styles.speedLegendText}>50-100 {useKmh ? 'km/h' : 'mph'}</Text>
+              </View>
+              <View style={styles.speedLegendItem}>
+                <View style={[styles.speedLegendColor, { backgroundColor: '#34C759' }]} />
+                <Text style={styles.speedLegendText}>100-150 {useKmh ? 'km/h' : 'mph'}</Text>
+              </View>
+              <View style={styles.speedLegendItem}>
+                <View style={[styles.speedLegendColor, { backgroundColor: '#0A84FF' }]} />
+                <Text style={styles.speedLegendText}>150+ {useKmh ? 'km/h' : 'mph'}</Text>
               </View>
             </View>
           </View>
@@ -387,6 +481,90 @@ const styles = StyleSheet.create({
   },
   chartLabel: {
     ...theme.typography.caption1,
+    color: theme.colors.dark.textSecondary,
+  },
+  travelTimeCard: {
+    marginTop: theme.spacing.lg,
+    backgroundColor: theme.colors.dark.card,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+  },
+  travelTimeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+  },
+  travelTimeTitle: {
+    ...theme.typography.headline,
+    color: theme.colors.dark.text,
+    fontWeight: '600' as const,
+  },
+  travelTimeContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  travelTimeItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  travelTimeDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: theme.colors.dark.border,
+  },
+  travelTimeLabel: {
+    ...theme.typography.caption1,
+    color: theme.colors.dark.textSecondary,
+    marginBottom: theme.spacing.xs,
+  },
+  travelTimeValue: {
+    ...theme.typography.headline,
+    color: theme.colors.dark.text,
+    fontWeight: '700' as const,
+  },
+  travelTimeDifference: {
+    marginTop: theme.spacing.md,
+    paddingTop: theme.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.dark.border,
+    alignItems: 'center',
+  },
+  travelTimeDifferenceText: {
+    ...theme.typography.callout,
+    fontWeight: '600' as const,
+  },
+  speedLegend: {
+    marginTop: theme.spacing.lg,
+    backgroundColor: theme.colors.dark.card,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+  },
+  speedLegendTitle: {
+    ...theme.typography.headline,
+    color: theme.colors.dark.text,
+    fontWeight: '600' as const,
+    marginBottom: theme.spacing.md,
+  },
+  speedLegendItems: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.md,
+  },
+  speedLegendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    minWidth: '45%',
+  },
+  speedLegendColor: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+  },
+  speedLegendText: {
+    ...theme.typography.subheadline,
     color: theme.colors.dark.textSecondary,
   },
   errorContainer: {

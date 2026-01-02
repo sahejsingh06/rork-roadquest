@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { StyleSheet, Text, View, Pressable, Platform, ScrollView, Modal } from 'react-native';
 import MapView, { Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Play, Square, ChevronRight } from 'lucide-react-native';
@@ -25,6 +25,8 @@ export default function DriveScreen() {
   const { userProfile } = useUser();
   const [selectedCar, setSelectedCar] = useState<Car | null>(null);
   const [showCarSelector, setShowCarSelector] = useState(false);
+  const [displayDuration, setDisplayDuration] = useState(0);
+  const durationInterval = useRef<number | null>(null);
 
   const [region, setRegion] = useState({
     latitude: 37.78825,
@@ -43,6 +45,28 @@ export default function DriveScreen() {
       });
     }
   }, [currentLocation]);
+
+  useEffect(() => {
+    if (isTracking && currentTrip) {
+      durationInterval.current = setInterval(() => {
+        const duration = Date.now() - currentTrip.startTime - currentTrip.pausedDuration;
+        setDisplayDuration(duration);
+      }, 1000);
+    } else {
+      if (durationInterval.current) {
+        clearInterval(durationInterval.current);
+        durationInterval.current = null;
+      }
+      setDisplayDuration(0);
+    }
+
+    return () => {
+      if (durationInterval.current) {
+        clearInterval(durationInterval.current);
+        durationInterval.current = null;
+      }
+    };
+  }, [isTracking, currentTrip]);
 
   const formatDuration = (ms: number) => {
     const seconds = Math.floor((ms / 1000) % 60);
@@ -238,7 +262,7 @@ export default function DriveScreen() {
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statValue}>
-                {formatDuration(currentTrip.duration)}
+                {formatDuration(displayDuration)}
               </Text>
               <Text style={styles.statLabel}>time</Text>
             </View>

@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, Pressable, TextInput, Modal } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Pressable, TextInput, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { Camera, X, Plus, Edit3, MapPin, Car as CarIcon, Trash2 } from 'lucide-react-native';
+import { Camera, X, Plus, Edit3, MapPin, Car as CarIcon, Trash2, Settings } from 'lucide-react-native';
 import { useTrip } from '@/contexts/TripContext';
 import { useUser } from '@/contexts/UserContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { theme } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import type { Car } from '@/types/user';
 
 const CAR_BRANDS = [
@@ -223,73 +224,87 @@ export default function ProfileScreen() {
         animationType="fade"
         onRequestClose={() => setIsCarModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add Car</Text>
-              <Pressable onPress={() => setIsCarModalVisible(false)}>
-                <X size={24} color={theme.colors.dark.textSecondary} />
-              </Pressable>
-            </View>
-            
-            <Text style={styles.inputLabel}>Select Brand</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.brandScroll}>
-              {CAR_BRANDS.map((brand) => (
-                <Pressable
-                  key={brand.name}
-                  style={[
-                    styles.brandItem,
-                    carBrand === brand.name && styles.brandItemSelected,
-                  ]}
-                  onPress={() => {
-                    setCarBrand(brand.name);
-                    setSelectedCarIcon(brand.icon);
-                  }}
-                >
-                  <Text style={styles.brandIcon}>{brand.icon}</Text>
-                  <Text style={[
-                    styles.brandText,
-                    carBrand === brand.name && styles.brandTextSelected,
-                  ]}>
-                    {brand.name}
-                  </Text>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <Pressable 
+            style={styles.modalOverlayPressable} 
+            onPress={() => setIsCarModalVisible(false)}
+          >
+            <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Add Car</Text>
+                <Pressable onPress={() => setIsCarModalVisible(false)}>
+                  <X size={24} color={theme.colors.dark.textSecondary} />
                 </Pressable>
-              ))}
-            </ScrollView>
+              </View>
+              
+              <ScrollView 
+                style={styles.modalScrollView}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
+                <Text style={styles.inputLabel}>Select Brand</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.brandScroll}>
+                  {CAR_BRANDS.map((brand) => (
+                    <Pressable
+                      key={brand.name}
+                      style={[
+                        styles.brandItem,
+                        carBrand === brand.name && styles.brandItemSelected,
+                      ]}
+                      onPress={() => {
+                        setCarBrand(brand.name);
+                        setSelectedCarIcon(brand.icon);
+                      }}
+                    >
+                      <Text style={styles.brandIcon}>{brand.icon}</Text>
+                      <Text style={[
+                        styles.brandText,
+                        carBrand === brand.name && styles.brandTextSelected,
+                      ]}>
+                        {brand.name}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
 
-            <Text style={styles.inputLabel}>Model</Text>
-            <TextInput
-              style={styles.input}
-              value={carModel}
-              onChangeText={setCarModel}
-              placeholder="e.g., Camry"
-              placeholderTextColor={theme.colors.dark.textTertiary}
-              maxLength={30}
-            />
+                <Text style={styles.inputLabel}>Model</Text>
+                <TextInput
+                  style={styles.input}
+                  value={carModel}
+                  onChangeText={setCarModel}
+                  placeholder="e.g., Camry"
+                  placeholderTextColor={theme.colors.dark.textTertiary}
+                  maxLength={30}
+                />
 
-            <Text style={styles.inputLabel}>Year</Text>
-            <TextInput
-              style={styles.input}
-              value={carYear}
-              onChangeText={setCarYear}
-              placeholder="e.g., 2023"
-              placeholderTextColor={theme.colors.dark.textTertiary}
-              keyboardType="numeric"
-              maxLength={4}
-            />
+                <Text style={styles.inputLabel}>Year</Text>
+                <TextInput
+                  style={styles.input}
+                  value={carYear}
+                  onChangeText={setCarYear}
+                  placeholder="e.g., 2023"
+                  placeholderTextColor={theme.colors.dark.textTertiary}
+                  keyboardType="numeric"
+                  maxLength={4}
+                />
 
-            <Pressable
-              style={[
-                styles.addButton,
-                (!carBrand || !carModel || !carYear) && styles.addButtonDisabled,
-              ]}
-              onPress={handleAddCar}
-              disabled={!carBrand || !carModel || !carYear}
-            >
-              <Text style={styles.addButtonText}>Add Car</Text>
+                <Pressable
+                  style={[
+                    styles.addButton,
+                    (!carBrand || !carModel || !carYear) && styles.addButtonDisabled,
+                  ]}
+                  onPress={handleAddCar}
+                  disabled={!carBrand || !carModel || !carYear}
+                >
+                  <Text style={styles.addButtonText}>Add Car</Text>
+                </Pressable>
+              </ScrollView>
             </Pressable>
-          </View>
-        </View>
+          </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
 
       <ScrollView 
@@ -373,6 +388,14 @@ export default function ProfileScreen() {
             </View>
           </View>
         </View>
+
+        <Pressable 
+          style={styles.settingsButton} 
+          onPress={() => router.push('/settings')}
+        >
+          <Settings size={20} color={theme.colors.dark.text} />
+          <Text style={styles.settingsButtonText}>Settings</Text>
+        </Pressable>
 
         <Pressable style={styles.signOutButton} onPress={signOut}>
           <Text style={styles.signOutText}>Sign Out</Text>
@@ -555,11 +578,27 @@ const styles = StyleSheet.create({
   },
   signOutButton: {
     marginHorizontal: theme.spacing.lg,
-    marginTop: theme.spacing.xl,
+    marginTop: theme.spacing.lg,
     backgroundColor: theme.colors.dark.card,
     paddingVertical: theme.spacing.lg,
     borderRadius: theme.borderRadius.lg,
     alignItems: 'center',
+  },
+  settingsButton: {
+    marginHorizontal: theme.spacing.lg,
+    marginTop: theme.spacing.md,
+    backgroundColor: theme.colors.dark.card,
+    paddingVertical: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.sm,
+  },
+  settingsButtonText: {
+    ...theme.typography.callout,
+    color: theme.colors.dark.text,
+    fontWeight: '600' as const,
   },
   signOutText: {
     ...theme.typography.callout,
@@ -567,6 +606,9 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
   },
   modalOverlay: {
+    flex: 1,
+  },
+  modalOverlayPressable: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.85)',
     justifyContent: 'center',
@@ -580,6 +622,9 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 400,
     maxHeight: '80%',
+  },
+  modalScrollView: {
+    maxHeight: '100%',
   },
   modalHeader: {
     flexDirection: 'row',
