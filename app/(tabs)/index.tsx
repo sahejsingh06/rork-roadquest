@@ -1075,7 +1075,7 @@ const styles = StyleSheet.create({
   },
   onboardingTitle: {
     ...theme.typography.largeTitle,
-    color: theme.colors.dark.text,
+    color: '#FFFFFF',
     fontWeight: '700' as const,
     fontSize: 32,
     marginBottom: theme.spacing.xs,
@@ -1083,7 +1083,7 @@ const styles = StyleSheet.create({
   },
   onboardingSubtitle: {
     ...theme.typography.body,
-    color: theme.colors.dark.textSecondary,
+    color: '#FFFFFFCC',
     textAlign: 'center',
     fontSize: 16,
   },
@@ -1093,13 +1093,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: theme.spacing.xxl,
     paddingHorizontal: theme.spacing.md,
+    minHeight: 200,
   },
   featureDescription: {
     ...theme.typography.body,
-    color: theme.colors.dark.text,
+    color: '#FFFFFF',
     lineHeight: 26,
     textAlign: 'center',
     fontSize: 16,
+    opacity: 0.9,
   },
   onboardingProgress: {
     flexDirection: 'row',
