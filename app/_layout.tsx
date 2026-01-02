@@ -51,6 +51,12 @@ function RootLayoutNav() {
             headerBackTitle: 'Back',
           }} 
         />
+        <Stack.Screen 
+          name="settings" 
+          options={{ 
+            headerShown: false,
+          }} 
+        />
       </Stack>
     </>
   );

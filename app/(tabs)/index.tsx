@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { StyleSheet, Text, View, Pressable, Platform, ScrollView, Modal, Share } from 'react-native';
+import { StyleSheet, Text, View, Pressable, Platform, ScrollView, Modal, Share, Animated } from 'react-native';
 import MapView, { Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import { Play, Square, ChevronRight, Target, TrendingUp, Share2, Map } from 'lucide-react-native';
+import { Play, Square, ChevronRight, Target, TrendingUp, Share2, Map, Trophy, Route as RouteIcon, Navigation, X } from 'lucide-react-native';
 import { useTrip } from '@/contexts/TripContext';
 import { useUser } from '@/contexts/UserContext';
 import { theme } from '@/constants/theme';
@@ -24,16 +24,31 @@ export default function DriveScreen() {
     stats,
   } = useTrip();
 
-  const { userProfile } = useUser();
+  const { userProfile, hasSeenOnboarding, markOnboardingAsSeen } = useUser();
   const [selectedCar, setSelectedCar] = useState<Car | null>(null);
   const [showCarSelector, setShowCarSelector] = useState(false);
   const [displayDuration, setDisplayDuration] = useState(0);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const durationInterval = useRef<number | null>(null);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const lastTrip = useMemo(() => {
     if (trips.length === 0) return null;
     return trips[0];
   }, [trips]);
+
+  useEffect(() => {
+    if (!hasSeenOnboarding && !isTracking) {
+      setTimeout(() => {
+        setShowOnboarding(true);
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }).start();
+      }, 1000);
+    }
+  }, [hasSeenOnboarding, isTracking, fadeAnim]);
 
   const todayMission = useMemo(() => {
     const today = new Date();
@@ -160,6 +175,17 @@ export default function DriveScreen() {
     } catch (error) {
       console.log('Error sharing:', error);
     }
+  };
+
+  const handleCloseOnboarding = () => {
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowOnboarding(false);
+      markOnboardingAsSeen();
+    });
   };
 
   if (!isTracking) {
@@ -340,6 +366,81 @@ export default function DriveScreen() {
               </Pressable>
             </View>
           </View>
+        </Modal>
+
+        <Modal
+          visible={showOnboarding}
+          transparent
+          animationType="none"
+          onRequestClose={handleCloseOnboarding}
+        >
+          <Animated.View style={[styles.onboardingOverlay, { opacity: fadeAnim }]}>
+            <View style={styles.onboardingContent}>
+              <Pressable style={styles.closeButton} onPress={handleCloseOnboarding}>
+                <X size={24} color={theme.colors.dark.textSecondary} />
+              </Pressable>
+              
+              <View style={styles.onboardingHeader}>
+                <View style={styles.onboardingIconContainer}>
+                  <Navigation size={32} color="#0A84FF" />
+                </View>
+                <Text style={styles.onboardingTitle}>Welcome to RoadQuest!</Text>
+                <Text style={styles.onboardingSubtitle}>Turn every drive into an adventure</Text>
+              </View>
+
+              <View style={styles.onboardingFeatures}>
+                <View style={styles.featureItem}>
+                  <View style={styles.featureIcon}>
+                    <RouteIcon size={24} color="#30D158" />
+                  </View>
+                  <View style={styles.featureContent}>
+                    <Text style={styles.featureTitle}>Track Your Journeys</Text>
+                    <Text style={styles.featureDescription}>
+                      Record every kilometer and explore new roads around the world
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.featureItem}>
+                  <View style={styles.featureIcon}>
+                    <Target size={24} color="#FF9F0A" />
+                  </View>
+                  <View style={styles.featureContent}>
+                    <Text style={styles.featureTitle}>Complete Missions</Text>
+                    <Text style={styles.featureDescription}>
+                      Earn GPS Points by completing daily, weekly, and monthly challenges
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.featureItem}>
+                  <View style={styles.featureIcon}>
+                    <Trophy size={24} color="#FFD700" />
+                  </View>
+                  <View style={styles.featureContent}>
+                    <Text style={styles.featureTitle}>Compete Globally</Text>
+                    <Text style={styles.featureDescription}>
+                      Climb leaderboards and see how you rank against drivers worldwide
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <Pressable
+                style={styles.onboardingButton}
+                onPress={handleCloseOnboarding}
+              >
+                <LinearGradient
+                  colors={['#0A84FF', '#0066CC']}
+                  style={styles.onboardingButtonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <Text style={styles.onboardingButtonText}>Get Started</Text>
+                </LinearGradient>
+              </Pressable>
+            </View>
+          </Animated.View>
         </Modal>
       </View>
     );
@@ -586,12 +687,14 @@ const styles = StyleSheet.create({
   },
   roadCoverageTeaserStats: {
     flexDirection: 'row',
-    gap: theme.spacing.lg,
+    flexWrap: 'wrap',
+    gap: theme.spacing.md,
   },
   roadCoverageTeaserStat: {
     ...theme.typography.callout,
     color: theme.colors.dark.text,
     fontWeight: '600' as const,
+    fontSize: 14,
   },
   selectedCarCard: {
     flexDirection: 'row',
@@ -852,5 +955,110 @@ const styles = StyleSheet.create({
     ...theme.typography.callout,
     color: theme.colors.dark.textSecondary,
     fontWeight: '600' as const,
+  },
+  onboardingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.92)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.xl,
+  },
+  onboardingContent: {
+    backgroundColor: theme.colors.dark.card,
+    borderRadius: theme.borderRadius.xxl,
+    padding: theme.spacing.xxl,
+    width: '100%',
+    maxWidth: 440,
+    position: 'relative',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: theme.spacing.lg,
+    right: theme.spacing.lg,
+    zIndex: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  onboardingHeader: {
+    alignItems: 'center',
+    marginBottom: theme.spacing.xxl,
+  },
+  onboardingIconContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(10, 132, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: theme.spacing.lg,
+  },
+  onboardingTitle: {
+    ...theme.typography.largeTitle,
+    color: theme.colors.dark.text,
+    fontWeight: '700' as const,
+    fontSize: 32,
+    marginBottom: theme.spacing.xs,
+    textAlign: 'center',
+  },
+  onboardingSubtitle: {
+    ...theme.typography.body,
+    color: theme.colors.dark.textSecondary,
+    textAlign: 'center',
+    fontSize: 16,
+  },
+  onboardingFeatures: {
+    gap: theme.spacing.lg,
+    marginBottom: theme.spacing.xxl,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: theme.spacing.md,
+  },
+  featureIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featureContent: {
+    flex: 1,
+  },
+  featureTitle: {
+    ...theme.typography.headline,
+    color: theme.colors.dark.text,
+    fontWeight: '600' as const,
+    marginBottom: theme.spacing.xs,
+  },
+  featureDescription: {
+    ...theme.typography.subheadline,
+    color: theme.colors.dark.textSecondary,
+    lineHeight: 20,
+  },
+  onboardingButton: {
+    borderRadius: theme.borderRadius.xl,
+    overflow: 'hidden',
+    elevation: 8,
+    shadowColor: '#0A84FF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+  },
+  onboardingButtonGradient: {
+    paddingVertical: theme.spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  onboardingButtonText: {
+    ...theme.typography.headline,
+    color: '#FFFFFF',
+    fontWeight: '700' as const,
+    fontSize: 18,
   },
 });

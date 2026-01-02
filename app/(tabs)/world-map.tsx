@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { StyleSheet, Text, View, Pressable, Platform } from 'react-native';
+import React, { useMemo } from 'react';
+import { StyleSheet, Text, View, Platform } from 'react-native';
 import MapView, { Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useTrip } from '@/contexts/TripContext';
 import { theme } from '@/constants/theme';
@@ -8,35 +8,14 @@ import { Globe, Route } from 'lucide-react-native';
 
 const ESTIMATED_WORLD_ROADS_KM = 64000000;
 
-type TimePeriod = 'daily' | 'weekly' | 'monthly' | 'all';
-
 export default function WorldMapScreen() {
   const { trips } = useTrip();
-  const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('all');
-
-  const filteredTrips = useMemo(() => {
-    const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay()).getTime();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-
-    switch (selectedPeriod) {
-      case 'daily':
-        return trips.filter(trip => trip.startTime >= startOfDay);
-      case 'weekly':
-        return trips.filter(trip => trip.startTime >= startOfWeek);
-      case 'monthly':
-        return trips.filter(trip => trip.startTime >= startOfMonth);
-      default:
-        return trips;
-    }
-  }, [trips, selectedPeriod]);
 
   const { routeColors, uniqueRoadsKm } = useMemo(() => {
     const colors: string[] = [];
     const roadSegments = new Set<string>();
 
-    filteredTrips.forEach((trip, index) => {
+    trips.forEach((trip, index) => {
       
       if (trip.locations.length > 0) {
         const hue = (index * 137.5) % 360;
@@ -61,12 +40,12 @@ export default function WorldMapScreen() {
       routeColors: colors,
       uniqueRoadsKm: uniqueRoadsEstimate,
     };
-  }, [filteredTrips]);
+  }, [trips]);
 
   const initialRegion = useMemo(() => {
     const allCoordinates: { latitude: number; longitude: number }[] = [];
     
-    filteredTrips.forEach((trip) => {
+    trips.forEach((trip) => {
       trip.locations.forEach(location => {
         allCoordinates.push({
           latitude: location.latitude,
@@ -104,16 +83,9 @@ export default function WorldMapScreen() {
       latitudeDelta: Math.max(latDelta, 0.05),
       longitudeDelta: Math.max(lngDelta, 0.05),
     };
-  }, [filteredTrips]);
+  }, [trips]);
 
-  const worldCoveragePercentage = ((uniqueRoadsKm / ESTIMATED_WORLD_ROADS_KM) * 100).toFixed(6);
-
-  const periods: { key: TimePeriod; label: string }[] = [
-    { key: 'daily', label: 'Today' },
-    { key: 'weekly', label: 'Week' },
-    { key: 'monthly', label: 'Month' },
-    { key: 'all', label: 'All' },
-  ];
+  const worldCoveragePercentage = ((uniqueRoadsKm / ESTIMATED_WORLD_ROADS_KM) * 100).toFixed(8);
 
   return (
     <View style={styles.container}>
@@ -123,31 +95,9 @@ export default function WorldMapScreen() {
             <Globe size={28} color={theme.colors.dark.accent} strokeWidth={2} />
             <View>
               <Text style={styles.title}>World Coverage</Text>
-              <Text style={styles.subtitle}>{filteredTrips.length} trips recorded</Text>
+              <Text style={styles.subtitle}>{trips.length} trips • All time</Text>
             </View>
           </View>
-        </View>
-
-        <View style={styles.periodSelector}>
-          {periods.map((period) => (
-            <Pressable
-              key={period.key}
-              style={[
-                styles.periodTab,
-                selectedPeriod === period.key && styles.periodTabActive,
-              ]}
-              onPress={() => setSelectedPeriod(period.key)}
-            >
-              <Text
-                style={[
-                  styles.periodTabText,
-                  selectedPeriod === period.key && styles.periodTabTextActive,
-                ]}
-              >
-                {period.label}
-              </Text>
-            </Pressable>
-          ))}
         </View>
       </SafeAreaView>
 
@@ -164,7 +114,7 @@ export default function WorldMapScreen() {
           scrollEnabled={true}
           zoomEnabled={true}
         >
-          {filteredTrips.map((trip, tripIndex) => {
+          {trips.map((trip, tripIndex) => {
             if (trip.locations.length < 2) return null;
 
             return (
@@ -184,24 +134,26 @@ export default function WorldMapScreen() {
         </MapView>
       </View>
 
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Globe size={14} color={theme.colors.dark.accent} />
-          <Text style={styles.statValue}>{worldCoveragePercentage}%</Text>
-          <Text style={styles.statLabel}>Coverage</Text>
-        </View>
+      <SafeAreaView edges={['bottom']} style={styles.bottomSafeArea}>
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <Route size={16} color={theme.colors.dark.success} />
+            <Text style={styles.statValue}>{uniqueRoadsKm.toFixed(1)} km</Text>
+            <Text style={styles.statLabel}>Unique Roads</Text>
+          </View>
 
-        <View style={styles.statCard}>
-          <Route size={14} color={theme.colors.dark.success} />
-          <Text style={styles.statValue}>{uniqueRoadsKm.toFixed(0)} km</Text>
-          <Text style={styles.statLabel}>Explored</Text>
-        </View>
+          <View style={styles.statCard}>
+            <Globe size={16} color={theme.colors.dark.accent} />
+            <Text style={styles.statValue}>{worldCoveragePercentage}%</Text>
+            <Text style={styles.statLabel}>World Coverage</Text>
+          </View>
 
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{filteredTrips.length}</Text>
-          <Text style={styles.statLabel}>Trips</Text>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{trips.length}</Text>
+            <Text style={styles.statLabel}>Total Trips</Text>
+          </View>
         </View>
-      </View>
+      </SafeAreaView>
     </View>
   );
 }
@@ -235,62 +187,43 @@ const styles = StyleSheet.create({
     color: theme.colors.dark.textSecondary,
     marginTop: 2,
   },
-  periodSelector: {
-    flexDirection: 'row',
-    paddingHorizontal: theme.spacing.lg,
-    gap: theme.spacing.sm,
-    paddingBottom: theme.spacing.md,
-  },
-  periodTab: {
-    flex: 1,
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.dark.card,
-    alignItems: 'center',
-  },
-  periodTabActive: {
-    backgroundColor: theme.colors.dark.accent,
-  },
-  periodTabText: {
-    ...theme.typography.callout,
-    color: theme.colors.dark.textSecondary,
-    fontWeight: '600' as const,
-  },
-  periodTabTextActive: {
-    color: '#FFFFFF',
-  },
+
   mapContainer: {
     flex: 1,
   },
   map: {
     flex: 1,
   },
-  statsContainer: {
+  bottomSafeArea: {
     position: 'absolute',
-    bottom: 100,
-    left: theme.spacing.md,
-    right: theme.spacing.md,
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  statsContainer: {
     flexDirection: 'row',
-    gap: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.lg,
+    paddingBottom: theme.spacing.md,
+    gap: theme.spacing.sm,
   },
   statCard: {
     flex: 1,
-    backgroundColor: 'rgba(18, 18, 18, 0.9)',
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.sm,
+    backgroundColor: 'rgba(18, 18, 18, 0.95)',
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.15)',
     alignItems: 'center',
-    gap: 2,
+    gap: 4,
   },
   statLabel: {
-    fontSize: 10,
+    fontSize: 11,
     color: theme.colors.dark.textSecondary,
     fontWeight: '600' as const,
+    textAlign: 'center',
   },
   statValue: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700' as const,
     color: theme.colors.dark.text,
   },

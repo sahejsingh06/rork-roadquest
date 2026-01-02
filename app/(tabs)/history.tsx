@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { StyleSheet, Text, View, ScrollView, Pressable, Alert, Platform } from 'react-native';
 import { router } from 'expo-router';
-import { Trash2, ChevronRight, TrendingUp, Route, Clock, Zap, Car as CarIcon } from 'lucide-react-native';
+import { Trash2, ChevronRight, TrendingUp, Route, Clock, Zap, Car as CarIcon, BarChart3 } from 'lucide-react-native';
 import { useTrip } from '@/contexts/TripContext';
 import { useUser } from '@/contexts/UserContext';
 import { theme } from '@/constants/theme';
@@ -115,11 +115,24 @@ export default function HistoryScreen() {
     <View style={styles.container}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
-          <Text style={styles.title}>Trip History</Text>
-          <Text style={styles.subtitle}>{trips.length} trips recorded</Text>
+          <View style={styles.headerLeft}>
+            <Text style={styles.title}>Trip History</Text>
+            <Text style={styles.subtitle}>{trips.length} trips recorded</Text>
+          </View>
+          <Pressable
+            style={styles.statsButton}
+            onPress={() => router.push('/(tabs)/stats')}
+          >
+            <BarChart3 size={24} color={theme.colors.dark.accent} />
+          </Pressable>
         </View>
 
-        <View style={styles.periodSelector}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.periodSelector}
+          style={styles.periodSelectorScroll}
+        >
           {periods.map((period) => (
             <Pressable
               key={period.key}
@@ -139,7 +152,7 @@ export default function HistoryScreen() {
               </Text>
             </Pressable>
           ))}
-        </View>
+        </ScrollView>
 
         {userProfile && userProfile.cars.length > 0 && (
           <View style={styles.carFilterContainer}>
@@ -269,9 +282,25 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.dark.background,
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.lg,
     paddingBottom: theme.spacing.md,
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  statsButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(10, 132, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(10, 132, 255, 0.3)',
   },
   title: {
     ...theme.typography.title1,
@@ -282,27 +311,31 @@ const styles = StyleSheet.create({
     color: theme.colors.dark.textSecondary,
     marginTop: theme.spacing.xs,
   },
-  periodSelector: {
-    flexDirection: 'row',
-    paddingHorizontal: theme.spacing.lg,
-    gap: theme.spacing.sm,
+  periodSelectorScroll: {
     marginBottom: theme.spacing.md,
   },
+  periodSelector: {
+    paddingHorizontal: theme.spacing.lg,
+    gap: theme.spacing.sm,
+  },
   periodTab: {
-    flex: 1,
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.dark.card,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.xl,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: 'rgba(28, 28, 30, 0.6)',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   periodTabActive: {
     backgroundColor: theme.colors.dark.accent,
+    borderColor: theme.colors.dark.accent,
   },
   periodTabText: {
     ...theme.typography.callout,
     color: theme.colors.dark.textSecondary,
     fontWeight: '600' as const,
+    fontSize: 15,
   },
   periodTabTextActive: {
     color: '#FFFFFF',

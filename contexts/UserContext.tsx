@@ -5,11 +5,13 @@ import type { UserProfile, Car } from '@/types/user';
 import { useAuth } from '@/contexts/AuthContext';
 
 const USER_PROFILE_KEY = '@roadquest_user_profile';
+const ONBOARDING_KEY = '@roadquest_onboarding_seen';
 
 export const [UserProvider, useUser] = createContextHook(() => {
   const { user: authUser, isLoading: authLoading } = useAuth();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false);
 
   const getUserProfileKey = useCallback((authUserId: string) => {
     return `${USER_PROFILE_KEY}_${authUserId}`;
@@ -30,6 +32,10 @@ export const [UserProvider, useUser] = createContextHook(() => {
       const key = getUserProfileKey(authUserId);
       const stored = await AsyncStorage.getItem(key);
       console.log('User profile loaded:', stored ? 'found' : 'not found');
+      
+      const onboardingSeen = await AsyncStorage.getItem(ONBOARDING_KEY);
+      setHasSeenOnboarding(onboardingSeen === 'true');
+      
       if (stored) {
         const profile = JSON.parse(stored) as UserProfile;
         if (!profile.cars) {
@@ -119,13 +125,24 @@ export const [UserProvider, useUser] = createContextHook(() => {
     await saveUserProfile(updatedProfile, authUser.id);
   }, [userProfile, authUser, saveUserProfile]);
 
+  const markOnboardingAsSeen = useCallback(async () => {
+    try {
+      await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
+      setHasSeenOnboarding(true);
+    } catch (error) {
+      console.error('Error saving onboarding status:', error);
+    }
+  }, []);
+
   return {
     userProfile,
     isLoading,
+    hasSeenOnboarding,
     updateUsername,
     updateProfilePhoto,
     updateRegion,
     addCar,
     removeCar,
+    markOnboardingAsSeen,
   };
 });
