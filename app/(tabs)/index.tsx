@@ -197,7 +197,7 @@ export default function DriveScreen() {
   };
 
   const handleNextOnboarding = () => {
-    if (onboardingStep < 2) {
+    if (onboardingStep < 3) {
       setOnboardingStep(onboardingStep + 1);
     } else {
       handleCloseOnboarding();
@@ -209,19 +209,25 @@ export default function DriveScreen() {
       icon: RouteIcon,
       iconColor: '#30D158',
       title: 'Track Your Journeys',
-      description: 'Transform every drive into a recorded adventure. RoadQuest uses GPS to map your routes, track distance, speed, and time automatically.\n\nDiscover what percentage of the world\'s roads you\'ve explored and visualize your driving history on an interactive map.',
+      description: 'Every drive becomes an adventure with RoadQuest. We automatically record your routes using GPS—tracking distance, speed, and duration without you lifting a finger.\n\nSimply tap "Start Drive", select your car, and hit the road. Your journey is captured in real-time with live stats and a beautiful map trail.\n\nView your complete driving history, analyze your patterns, and relive every route you\'ve taken.',
     },
     {
       icon: Target,
       iconColor: '#FF9F0A',
-      title: 'Complete Missions',
-      description: 'Earn GPS Points with every kilometer you drive. Complete daily missions like "Drive 5km today" or weekly challenges like "Explore 10 new roads."\n\nUse your points to unlock car icons, profile badges, map themes, and exclusive rewards in the GP Store.',
+      title: 'Complete Daily Missions',
+      description: 'Turn driving into a rewarding experience. Earn 1 GPS Point for every kilometer you drive, with bonus points from completing missions.\n\nDaily: "Drive 5 km today" (+5 GP)\nWeekly: "Explore 10 new roads" (+20 GP)\nMonthly: "Cover 100 km" (+80 GP)\n\nSpend your GPS Points in the store to unlock exclusive car icons, profile badges, map themes, and special boosts.',
+    },
+    {
+      icon: Map,
+      iconColor: '#64D2FF',
+      title: 'Discover the World',
+      description: 'See exactly which roads you\'ve conquered. RoadQuest maps every unique road you drive, showing your personal coverage on an interactive world map.\n\nExample: Drive through Singapore and watch as roads light up in green. "You\'ve covered 2.4% of Singapore\'s roads!"\n\nWith ~64-193 million km of roads worldwide, even 0.001% is an achievement. Every drive adds to your global exploration percentage.',
     },
     {
       icon: Trophy,
       iconColor: '#FFD700',
       title: 'Compete Globally',
-      description: 'Join a worldwide community of drivers. Climb leaderboards based on distance driven, roads covered, and GPS Points earned.\n\nCompete safely with friends or globally—no speed rankings, just pure exploration and consistency.',
+      description: 'Join thousands of drivers worldwide. Climb leaderboards based on distance driven, unique roads discovered, and GPS Points earned.\n\nCompete with friends or challenge drivers globally—all rankings focus on exploration and consistency, never speed.\n\nSafe driving meets friendly competition. See where you rank today, this week, and this month!',
     },
   ];
 
@@ -475,7 +481,7 @@ export default function DriveScreen() {
                   end={{ x: 1, y: 1 }}
                 >
                   <Text style={styles.onboardingButtonText}>
-                    {onboardingStep < 2 ? 'Next' : 'Get Started'}
+                    {onboardingStep < 3 ? 'Next' : 'Get Started'}
                   </Text>
                 </LinearGradient>
               </Pressable>
