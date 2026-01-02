@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ProfileScreen() {
   const { stats, useKmh } = useTrip();
-  const { userProfile, createProfile, updateUsername, isLoading } = useUser();
+  const { userProfile, updateUsername, isLoading } = useUser();
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [username, setUsername] = useState('');
 
@@ -70,12 +70,8 @@ export default function ProfileScreen() {
   const handleSaveUsername = async () => {
     if (username.trim().length === 0) return;
     
-    if (!userProfile) {
-      await createProfile(username);
-    } else {
-      await updateUsername(username);
-      setIsEditModalVisible(false);
-    }
+    await updateUsername(username);
+    setIsEditModalVisible(false);
     setUsername('');
   };
 

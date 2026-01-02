@@ -2,21 +2,45 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { UserProfile } from '@/types/user';
+import { useAuth } from '@/contexts/AuthContext';
 
 const USER_PROFILE_KEY = '@roadquest_user_profile';
 
 export const [UserProvider, useUser] = createContextHook(() => {
+  const { user: authUser, isLoading: authLoading } = useAuth();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadUserProfile = useCallback(async () => {
-    console.log('Loading user profile...');
+  const getUserProfileKey = useCallback((authUserId: string) => {
+    return `${USER_PROFILE_KEY}_${authUserId}`;
+  }, []);
+
+  const saveUserProfile = useCallback(async (profile: UserProfile, authUserId: string) => {
     try {
-      const stored = await AsyncStorage.getItem(USER_PROFILE_KEY);
+      const key = getUserProfileKey(authUserId);
+      await AsyncStorage.setItem(key, JSON.stringify(profile));
+    } catch (error) {
+      console.error('Error saving user profile:', error);
+    }
+  }, [getUserProfileKey]);
+
+  const loadUserProfile = useCallback(async (authUserId: string) => {
+    console.log('Loading user profile for:', authUserId);
+    try {
+      const key = getUserProfileKey(authUserId);
+      const stored = await AsyncStorage.getItem(key);
       console.log('User profile loaded:', stored ? 'found' : 'not found');
       if (stored) {
         const profile = JSON.parse(stored) as UserProfile;
         setUserProfile(profile);
+      } else if (authUser) {
+        const newProfile: UserProfile = {
+          id: authUser.id,
+          username: authUser.name,
+          createdAt: Date.now(),
+        };
+        setUserProfile(newProfile);
+        await saveUserProfile(newProfile, authUserId);
       }
     } catch (error) {
       console.error('Error loading user profile:', error);
@@ -24,45 +48,31 @@ export const [UserProvider, useUser] = createContextHook(() => {
       console.log('Setting isLoading to false');
       setIsLoading(false);
     }
-  }, []);
+  }, [authUser, getUserProfileKey, saveUserProfile]);
 
   useEffect(() => {
-    loadUserProfile();
-  }, [loadUserProfile]);
-
-  const saveUserProfile = async (profile: UserProfile) => {
-    try {
-      await AsyncStorage.setItem(USER_PROFILE_KEY, JSON.stringify(profile));
-    } catch (error) {
-      console.error('Error saving user profile:', error);
+    if (!authLoading && authUser) {
+      loadUserProfile(authUser.id);
+    } else if (!authLoading && !authUser) {
+      setUserProfile(null);
+      setIsLoading(false);
     }
-  };
+  }, [authUser, authLoading, loadUserProfile]);
 
-  const createProfile = async (username: string) => {
-    const newProfile: UserProfile = {
-      id: Date.now().toString(),
-      username: username.trim(),
-      createdAt: Date.now(),
-    };
-    setUserProfile(newProfile);
-    await saveUserProfile(newProfile);
-  };
-
-  const updateUsername = async (username: string) => {
-    if (!userProfile) return;
+  const updateUsername = useCallback(async (username: string) => {
+    if (!userProfile || !authUser) return;
     
     const updatedProfile: UserProfile = {
       ...userProfile,
       username: username.trim(),
     };
     setUserProfile(updatedProfile);
-    await saveUserProfile(updatedProfile);
-  };
+    await saveUserProfile(updatedProfile, authUser.id);
+  }, [userProfile, authUser, saveUserProfile]);
 
   return {
     userProfile,
     isLoading,
-    createProfile,
     updateUsername,
   };
 });

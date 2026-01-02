@@ -1,25 +1,45 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar } from "expo-status-bar";
 import { TripProvider } from "@/contexts/TripContext";
 import { UserProvider } from "@/contexts/UserContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
 function RootLayoutNav() {
+  const { isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
+  const segments = useSegments();
+
   useEffect(() => {
-    SplashScreen.hideAsync();
-  }, []);
+    if (isLoading) return;
+
+    const inAuthGroup = segments[0] === 'sign-in';
+
+    if (!isAuthenticated && !inAuthGroup) {
+      router.replace('/sign-in');
+    } else if (isAuthenticated && inAuthGroup) {
+      router.replace('/(tabs)');
+    }
+  }, [isAuthenticated, isLoading, segments, router]);
+
+  useEffect(() => {
+    if (!isLoading) {
+      SplashScreen.hideAsync();
+    }
+  }, [isLoading]);
 
   return (
     <>
       <StatusBar style="light" />
       <Stack screenOptions={{ headerBackTitle: "Back" }}>
+        <Stack.Screen name="sign-in" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen 
           name="trip-summary/[id]" 
@@ -39,13 +59,15 @@ function RootLayoutNav() {
 export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
-      <UserProvider>
-        <TripProvider>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <RootLayoutNav />
-          </GestureHandlerRootView>
-        </TripProvider>
-      </UserProvider>
+      <AuthProvider>
+        <UserProvider>
+          <TripProvider>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <RootLayoutNav />
+            </GestureHandlerRootView>
+          </TripProvider>
+        </UserProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
