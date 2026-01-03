@@ -452,11 +452,15 @@ export default function DriveScreen() {
                 )}
               </View>
 
-              <View style={styles.onboardingFeatures}>
+              <ScrollView 
+                style={styles.onboardingFeatures}
+                contentContainerStyle={styles.onboardingFeaturesContent}
+                showsVerticalScrollIndicator={false}
+              >
                 <Text style={styles.featureDescription}>
                   {currentStep.description}
                 </Text>
-              </View>
+              </ScrollView>
 
               <View style={styles.onboardingProgress}>
                 {onboardingSteps.map((_, index) => (
@@ -1046,6 +1050,7 @@ const styles = StyleSheet.create({
     padding: theme.spacing.xxl,
     width: '100%',
     maxWidth: 440,
+    maxHeight: '85%',
     position: 'relative',
   },
   closeButton: {
@@ -1088,19 +1093,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   onboardingFeatures: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     marginBottom: theme.spacing.xxl,
     paddingHorizontal: theme.spacing.md,
-    minHeight: 200,
+    maxHeight: 320,
   },
   featureDescription: {
     ...theme.typography.body,
     color: '#FFFFFF',
-    lineHeight: 26,
+    lineHeight: 24,
     textAlign: 'center',
-    fontSize: 16,
+    fontSize: 15,
     opacity: 0.9,
   },
   onboardingProgress: {
@@ -1138,5 +1140,10 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700' as const,
     fontSize: 18,
+  },
+  onboardingFeaturesContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: theme.spacing.md,
   },
 });

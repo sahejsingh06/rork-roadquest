@@ -2,7 +2,7 @@ import React, { useMemo, useCallback } from 'react';
 import { StyleSheet, Text, View, ScrollView, Dimensions, Platform } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import MapView, { Polyline, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import { Calendar, Clock, Zap, Route, Gauge, Navigation, TrendingUp, Award } from 'lucide-react-native';
+import { Calendar, Clock, Zap, Route, Gauge, TrendingUp, Award } from 'lucide-react-native';
 import { useTrip } from '@/contexts/TripContext';
 import { theme } from '@/constants/theme';
 
@@ -257,13 +257,6 @@ export default function TripSummaryScreen() {
                   <Text style={styles.additionalStatLabel}>GPS Points Earned</Text>
                 </View>
               </View>
-              <View style={styles.additionalStatItem}>
-                <Navigation size={18} color={theme.colors.dark.textSecondary} />
-                <View style={styles.additionalStatText}>
-                  <Text style={styles.additionalStatValue}>{trip.locations.length}</Text>
-                  <Text style={styles.additionalStatLabel}>Location Updates</Text>
-                </View>
-              </View>
             </View>
           </View>
 
@@ -319,28 +312,34 @@ export default function TripSummaryScreen() {
           <View style={styles.chartSection}>
             <Text style={styles.chartTitle}>Speed Over Time</Text>
             <View style={styles.chartContainer}>
-              <View style={styles.chart}>
-                {speedData.map((point, index) => {
-                  const height = (point.y / maxChartSpeed) * CHART_HEIGHT;
-                  const barWidth = CHART_WIDTH / speedData.length;
-                  
-                  return (
-                    <View
-                      key={index}
-                      style={[
-                        styles.chartBar,
-                        {
-                          height: Math.max(height, 2),
-                          width: Math.max(barWidth - 1, 1),
-                        },
-                      ]}
-                    />
-                  );
-                })}
+              <View style={styles.chartWrapper}>
+                <View style={styles.chartYAxis}>
+                  <Text style={styles.chartYLabel}>{Math.round(maxChartSpeed)}</Text>
+                  <Text style={styles.chartYLabel}>{Math.round(maxChartSpeed / 2)}</Text>
+                  <Text style={styles.chartYLabel}>0</Text>
+                </View>
+                <View style={styles.chart}>
+                  {speedData.map((point, index) => {
+                    const height = (point.y / maxChartSpeed) * CHART_HEIGHT;
+                    const barWidth = (CHART_WIDTH - 40) / speedData.length;
+                    
+                    return (
+                      <View
+                        key={index}
+                        style={[
+                          styles.chartBar,
+                          {
+                            height: Math.max(height, 2),
+                            width: Math.max(barWidth - 1, 1),
+                          },
+                        ]}
+                      />
+                    );
+                  })}
+                </View>
               </View>
-              <View style={styles.chartLabels}>
-                <Text style={styles.chartLabel}>0</Text>
-                <Text style={styles.chartLabel}>{Math.round(maxChartSpeed)} {useKmh ? 'km/h' : 'mph'}</Text>
+              <View style={styles.chartXAxisLabel}>
+                <Text style={styles.chartLabel}>Speed ({useKmh ? 'km/h' : 'mph'})</Text>
               </View>
             </View>
           </View>
@@ -431,7 +430,7 @@ const styles = StyleSheet.create({
   },
   additionalStatRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'center',
   },
   additionalStatItem: {
     flexDirection: 'row',
@@ -464,8 +463,25 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.lg,
   },
+  chartWrapper: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  chartYAxis: {
+    height: CHART_HEIGHT,
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    paddingRight: theme.spacing.xs,
+    width: 40,
+  },
+  chartYLabel: {
+    ...theme.typography.caption2,
+    color: theme.colors.dark.textSecondary,
+    fontSize: 11,
+  },
   chart: {
     height: CHART_HEIGHT,
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 1,
@@ -474,14 +490,14 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.dark.accent,
     borderRadius: 2,
   },
-  chartLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  chartXAxisLabel: {
+    alignItems: 'center',
     marginTop: theme.spacing.sm,
   },
   chartLabel: {
     ...theme.typography.caption1,
     color: theme.colors.dark.textSecondary,
+    fontWeight: '600' as const,
   },
   travelTimeCard: {
     marginTop: theme.spacing.lg,
