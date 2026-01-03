@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, Pressable, TextInput, Modal, KeyboardAvoidingView, Platform } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Pressable, TextInput, Modal, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { Camera, X, Plus, Edit3, MapPin, Car as CarIcon, Trash2, Settings, Users, UserPlus, Check, Search } from 'lucide-react-native';
+import * as Clipboard from 'expo-clipboard';
+import { Camera, X, Plus, Edit3, MapPin, Car as CarIcon, Trash2, Settings, Users, UserPlus, Check, Search, Copy } from 'lucide-react-native';
 import { useTrip } from '@/contexts/TripContext';
 import { useUser } from '@/contexts/UserContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -134,6 +135,12 @@ export default function ProfileScreen() {
     setCarYear('');
     setSelectedCarIcon('🚗');
     setIsCarModalVisible(true);
+  };
+
+  const handleCopyUsername = async () => {
+    if (!userProfile?.username) return;
+    await Clipboard.setStringAsync(userProfile.username);
+    Alert.alert('Copied!', 'Username copied to clipboard');
   };
 
   if (!userProfile) {
@@ -489,11 +496,21 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.profileSection}>
-          <View style={styles.usernameContainer}>
-            <Text style={styles.username}>{userProfile.username}</Text>
-            <Pressable onPress={openEditModal} style={styles.editButton}>
-              <Edit3 size={18} color={theme.colors.dark.accent} />
-            </Pressable>
+          <Text style={styles.displayName}>{userProfile.username}</Text>
+          
+          <View style={styles.usernameCard}>
+            <View style={styles.usernameRow}>
+              <Text style={styles.usernameHandle}>@{userProfile.username.toLowerCase().replace(/\s+/g, '')}</Text>
+              <View style={styles.usernameActions}>
+                <Pressable onPress={handleCopyUsername} style={styles.copyButton}>
+                  <Copy size={16} color={theme.colors.dark.accent} />
+                </Pressable>
+                <Pressable onPress={openEditModal} style={styles.editButton}>
+                  <Edit3 size={16} color={theme.colors.dark.accent} />
+                </Pressable>
+              </View>
+            </View>
+            <Text style={styles.usernameHint}>Share this with friends to connect</Text>
           </View>
           
           <Pressable 
@@ -690,15 +707,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
   },
-  usernameContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-  },
-  username: {
+  displayName: {
     ...theme.typography.title2,
     color: theme.colors.dark.text,
+    fontWeight: '700' as const,
+    marginBottom: theme.spacing.sm,
+  },
+  usernameCard: {
+    backgroundColor: theme.colors.dark.card,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+  },
+  usernameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  usernameHandle: {
+    ...theme.typography.headline,
+    color: theme.colors.dark.accent,
     fontWeight: '600' as const,
+    flex: 1,
+  },
+  usernameActions: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  usernameHint: {
+    ...theme.typography.caption1,
+    color: theme.colors.dark.textSecondary,
+    marginTop: theme.spacing.xs,
+  },
+  copyButton: {
+    padding: theme.spacing.xs,
   },
   editButton: {
     padding: theme.spacing.xs,
