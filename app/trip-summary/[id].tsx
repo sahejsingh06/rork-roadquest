@@ -2,7 +2,7 @@ import React, { useMemo, useCallback, useRef, useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, Dimensions, Platform, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
 import MapView, { Polyline, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import { Calendar, Clock, Zap, Route, Gauge, TrendingUp, Award, Share2 } from 'lucide-react-native';
+import { Calendar, Clock, Zap, Route, Gauge, TrendingUp, Award, Share2, Instagram, Facebook, Twitter } from 'lucide-react-native';
 import { useTrip } from '@/contexts/TripContext';
 import { theme } from '@/constants/theme';
 import { captureRef } from 'react-native-view-shot';
@@ -211,9 +211,22 @@ export default function TripSummaryScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View ref={shareViewRef} collapsable={false} style={styles.shareContainer}>
-          <View style={styles.shareBranding}>
-            <Text style={styles.shareBrandingText}>RoadQuest</Text>
-            <Text style={styles.shareBrandingSubtext}>Track • Explore • Compete</Text>
+          <View style={styles.shareHeader}>
+            <View style={styles.shareBrandingTop}>
+              <Text style={styles.shareBrandingText}>RoadQuest</Text>
+              <Text style={styles.shareBrandingSubtext}>Track • Explore • Compete</Text>
+            </View>
+            <View style={styles.socialIconsContainer}>
+              <View style={styles.socialIcon}>
+                <Instagram size={16} color={theme.colors.dark.accent} />
+              </View>
+              <View style={styles.socialIcon}>
+                <Facebook size={16} color={theme.colors.dark.accent} />
+              </View>
+              <View style={styles.socialIcon}>
+                <Twitter size={16} color={theme.colors.dark.accent} />
+              </View>
+            </View>
           </View>
           
         <View style={styles.mapContainer}>
@@ -370,22 +383,40 @@ export default function TripSummaryScreen() {
           </View>
 
           <View style={styles.shareStatsCard}>
+            <View style={styles.shareStatsHeader}>
+              <Text style={styles.shareStatsTitle}>Journey Summary</Text>
+              <Text style={styles.shareStatsDate}>{formatDate(trip.startTime)}</Text>
+            </View>
             <View style={styles.shareStatsRow}>
               <View style={styles.shareStatItem}>
+                <View style={styles.shareStatIconContainer}>
+                  <Route size={18} color={theme.colors.dark.accent} />
+                </View>
                 <Text style={styles.shareStatValue}>{trip.distance.toFixed(1)} km</Text>
                 <Text style={styles.shareStatLabel}>Distance</Text>
               </View>
+              <View style={styles.shareStatDivider} />
               <View style={styles.shareStatItem}>
+                <View style={styles.shareStatIconContainer}>
+                  <Clock size={18} color={theme.colors.dark.accent} />
+                </View>
                 <Text style={styles.shareStatValue}>{formatDuration(trip.duration)}</Text>
                 <Text style={styles.shareStatLabel}>Duration</Text>
               </View>
+              <View style={styles.shareStatDivider} />
               <View style={styles.shareStatItem}>
+                <View style={styles.shareStatIconContainer}>
+                  <Gauge size={18} color={theme.colors.dark.accent} />
+                </View>
                 <Text style={styles.shareStatValue}>{Math.round(useKmh ? trip.avgSpeed : trip.avgSpeed * 0.621371)}</Text>
-                <Text style={styles.shareStatLabel}>Avg Speed</Text>
+                <Text style={styles.shareStatLabel}>Avg Speed ({useKmh ? 'km/h' : 'mph'})</Text>
               </View>
             </View>
             <View style={styles.shareFooter}>
-              <Text style={styles.shareFooterText}>🏆 +{gpsPoints} GP Earned</Text>
+              <View style={styles.shareFooterReward}>
+                <Award size={20} color={theme.colors.dark.accent} />
+                <Text style={styles.shareFooterText}>+{gpsPoints} GP Earned</Text>
+              </View>
             </View>
           </View>
 
@@ -680,59 +711,127 @@ const styles = StyleSheet.create({
   shareContainer: {
     backgroundColor: theme.colors.dark.background,
   },
-  shareBranding: {
+  shareHeader: {
     backgroundColor: theme.colors.dark.card,
     padding: theme.spacing.lg,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    borderBottomWidth: 2,
+    borderBottomWidth: 3,
     borderBottomColor: theme.colors.dark.accent,
   },
+  shareBrandingTop: {
+    flex: 1,
+  },
   shareBrandingText: {
-    ...theme.typography.title1,
+    ...theme.typography.largeTitle,
     color: theme.colors.dark.accent,
     fontWeight: '800' as const,
-    letterSpacing: 1,
+    letterSpacing: 1.5,
+    fontSize: 32,
   },
   shareBrandingSubtext: {
-    ...theme.typography.caption1,
+    ...theme.typography.subheadline,
     color: theme.colors.dark.textSecondary,
-    marginTop: theme.spacing.xs,
-    letterSpacing: 2,
+    marginTop: 4,
+    letterSpacing: 3,
+    textTransform: 'uppercase' as const,
+  },
+  socialIconsContainer: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+    alignItems: 'center',
+  },
+  socialIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: theme.colors.dark.cardElevated,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.dark.accent,
   },
   shareStatsCard: {
     backgroundColor: theme.colors.dark.card,
     marginHorizontal: theme.spacing.lg,
-    marginTop: theme.spacing.lg,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.lg,
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing.xl,
+    borderWidth: 2,
+    borderColor: theme.colors.dark.accent,
+  },
+  shareStatsHeader: {
+    marginBottom: theme.spacing.lg,
+    paddingBottom: theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.dark.border,
+  },
+  shareStatsTitle: {
+    ...theme.typography.title2,
+    color: theme.colors.dark.text,
+    fontWeight: '700' as const,
+    marginBottom: theme.spacing.xs,
+  },
+  shareStatsDate: {
+    ...theme.typography.caption1,
+    color: theme.colors.dark.textSecondary,
   },
   shareStatsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  shareStatItem: {
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
+  shareStatItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  shareStatIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: theme.colors.dark.cardElevated,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: theme.spacing.sm,
+  },
   shareStatValue: {
-    ...theme.typography.title3,
+    ...theme.typography.title2,
     color: theme.colors.dark.text,
-    fontWeight: '700' as const,
+    fontWeight: '800' as const,
+    marginTop: theme.spacing.xs,
   },
   shareStatLabel: {
     ...theme.typography.caption1,
     color: theme.colors.dark.textSecondary,
     marginTop: theme.spacing.xs,
+    textAlign: 'center',
+  },
+  shareStatDivider: {
+    width: 1,
+    height: 60,
+    backgroundColor: theme.colors.dark.border,
   },
   shareFooter: {
-    marginTop: theme.spacing.md,
-    paddingTop: theme.spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.dark.border,
+    marginTop: theme.spacing.lg,
+    paddingTop: theme.spacing.lg,
+    borderTopWidth: 2,
+    borderTopColor: theme.colors.dark.accent,
     alignItems: 'center',
   },
+  shareFooterReward: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    backgroundColor: theme.colors.dark.cardElevated,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.full,
+  },
   shareFooterText: {
-    ...theme.typography.callout,
+    ...theme.typography.headline,
     color: theme.colors.dark.accent,
-    fontWeight: '600' as const,
+    fontWeight: '700' as const,
   },
 });
