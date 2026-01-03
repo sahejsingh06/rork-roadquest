@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,8 @@ import { Trophy, TrendingUp, TrendingDown, Minus, Crown } from 'lucide-react-nat
 import { theme } from '@/constants/theme';
 import { useUser } from '@/contexts/UserContext';
 import { useTrip } from '@/contexts/TripContext';
+import { trpc } from '@/lib/trpc';
+import { useAuth } from '@/contexts/AuthContext';
 import type {
   LeaderboardType,
   LeaderboardPeriod,
@@ -22,46 +24,81 @@ import type { Trip } from '@/types/trip';
 export default function LeaderboardScreen() {
   const { userProfile } = useUser();
   const { trips } = useTrip();
+  const { user: authUser } = useAuth();
   
   const [selectedType, setSelectedType] = useState<LeaderboardType>('distance');
   const [selectedPeriod, setSelectedPeriod] = useState<LeaderboardPeriod>('weekly');
+  const [selectedScope, setSelectedScope] = useState<'global' | 'friends'>('global');
 
 
-  const leaderboardData = useMemo(() => {
-
+  const localStats = useMemo(() => {
     let totalDistance = 0;
     let totalGPSPoints = 0;
     let totalTrips = 0;
 
     if (trips && trips.length > 0) {
-      const now = Date.now();
-      const weekMs = 7 * 24 * 60 * 60 * 1000;
-      const monthMs = 30 * 24 * 60 * 60 * 1000;
-
-      const filteredTrips = trips.filter((trip: Trip) => {
-        if (selectedPeriod === 'allTime') return true;
-        if (selectedPeriod === 'weekly') return now - trip.startTime < weekMs;
-        if (selectedPeriod === 'monthly') return now - trip.startTime < monthMs;
-        if (selectedPeriod === 'season') return now - trip.startTime < monthMs;
-        return true;
-      });
-
-      filteredTrips.forEach((trip: Trip) => {
+      trips.forEach((trip: Trip) => {
         totalDistance += trip.distance;
         totalTrips += 1;
       });
       totalGPSPoints = Math.floor(totalDistance);
     }
 
+    return {
+      totalDistance: Math.round(totalDistance),
+      totalGPSPoints,
+      totalTrips,
+      roadCoveragePercent: 0.8,
+    };
+  }, [trips]);
+
+  const syncMutation = trpc.user.sync.useMutation();
+
+  useEffect(() => {
+    if (authUser && userProfile && !syncMutation.isPending) {
+      syncMutation.mutate({
+        username: userProfile.username,
+        email: authUser.email,
+        photoUrl: userProfile.photoUrl,
+        region: userProfile.region,
+        totalDistance: localStats.totalDistance,
+        totalTrips: localStats.totalTrips,
+        totalGPSPoints: localStats.totalGPSPoints,
+        roadCoveragePercent: localStats.roadCoveragePercent,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser, userProfile, localStats]);
+
+  const leaderboardQuery = trpc.leaderboard.get.useQuery(
+    {
+      type: selectedType,
+      period: selectedPeriod,
+      scope: selectedScope,
+    },
+    {
+      enabled: !!authUser,
+      refetchInterval: 30000,
+    }
+  );
+
+  const leaderboardData = useMemo(() => {
+    if (leaderboardQuery.data) {
+      return {
+        entries: leaderboardQuery.data.entries,
+        currentUserEntry: leaderboardQuery.data.currentUserEntry,
+      };
+    }
+
     let currentUserValue = 0;
     if (selectedType === 'distance') {
-      currentUserValue = Math.round(totalDistance);
+      currentUserValue = localStats.totalDistance;
     } else if (selectedType === 'gpsPoints') {
-      currentUserValue = totalGPSPoints;
+      currentUserValue = localStats.totalGPSPoints;
     } else if (selectedType === 'trips') {
-      currentUserValue = totalTrips;
+      currentUserValue = localStats.totalTrips;
     } else if (selectedType === 'coverage') {
-      currentUserValue = 0.8;
+      currentUserValue = localStats.roadCoveragePercent;
     }
 
     const currentUserEntry: LeaderboardEntry = {
@@ -78,7 +115,7 @@ export default function LeaderboardScreen() {
       entries: [],
       currentUserEntry,
     };
-  }, [selectedType, selectedPeriod, trips, userProfile]);
+  }, [leaderboardQuery.data, selectedType, localStats, userProfile]);
 
   const getValueLabel = (type: LeaderboardType): string => {
     switch (type) {
@@ -378,19 +415,66 @@ export default function LeaderboardScreen() {
           </ScrollView>
         </View>
 
+        <View style={styles.filterSection}>
+          <Text style={styles.filterLabel}>Scope</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filterScroll}
+          >
+            <TouchableOpacity
+              style={[
+                styles.filterChip,
+                selectedScope === 'global' && styles.filterChipActive,
+              ]}
+              onPress={() => setSelectedScope('global')}
+            >
+              <Text
+                style={[
+                  styles.filterChipText,
+                  selectedScope === 'global' && styles.filterChipTextActive,
+                ]}
+              >
+                Global
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.filterChip,
+                selectedScope === 'friends' && styles.filterChipActive,
+              ]}
+              onPress={() => setSelectedScope('friends')}
+            >
+              <Text
+                style={[
+                  styles.filterChipText,
+                  selectedScope === 'friends' && styles.filterChipTextActive,
+                ]}
+              >
+                Friends
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+
         <View style={styles.currentPeriodBanner}>
           <Text style={styles.currentPeriodText}>
-            {getPeriodLabel(selectedPeriod)} • Global Leaderboard
+            {getPeriodLabel(selectedPeriod)} • {selectedScope === 'global' ? 'Global' : 'Friends'} Leaderboard
           </Text>
         </View>
 
-        <View style={styles.infoNotice}>
-          <Trophy size={24} color={theme.colors.dark.accent} />
-          <Text style={styles.infoNoticeTitle}>Coming Soon: Global Leaderboards</Text>
-          <Text style={styles.infoNoticeText}>
-            Connect with drivers worldwide and compete on the global leaderboard. This feature will be available when the app connects to our servers.
-          </Text>
-        </View>
+        {leaderboardQuery.isLoading && (
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Loading leaderboard...</Text>
+          </View>
+        )}
+
+        {leaderboardData.entries.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Top Drivers</Text>
+            {leaderboardData.entries.map(entry => renderLeaderboardEntry(entry))}
+          </View>
+        )}
 
         {leaderboardData.currentUserEntry && (
           <View style={styles.section}>
@@ -399,14 +483,19 @@ export default function LeaderboardScreen() {
           </View>
         )}
 
-        <View style={styles.infoBox}>
-          <Text style={styles.infoText}>
-            Your stats are calculated from your trips. Leaderboards will reset every {selectedPeriod === 'weekly' ? 'Monday' : selectedPeriod === 'monthly' ? 'month' : selectedPeriod === 'season' ? '30 days' : 'never'} when global rankings are available.
-          </Text>
-          <Text style={styles.infoSubtext}>
-            Keep driving to improve your stats and prepare for global competition!
-          </Text>
-        </View>
+        {leaderboardData.entries.length === 0 && !leaderboardQuery.isLoading && (
+          <View style={styles.infoNotice}>
+            <Trophy size={24} color={theme.colors.dark.accent} />
+            <Text style={styles.infoNoticeTitle}>
+              {selectedScope === 'friends' ? 'No Friends Yet' : 'Be the First!'}
+            </Text>
+            <Text style={styles.infoNoticeText}>
+              {selectedScope === 'friends' 
+                ? 'Add friends to compete with them on the leaderboard. Go to your profile to add friends!'
+                : 'Start driving to climb the leaderboard! Your stats will appear here as you complete trips.'}
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -717,6 +806,18 @@ const styles = StyleSheet.create({
   },
   infoSubtext: {
     ...theme.typography.footnote,
+    color: theme.colors.dark.textSecondary,
+  },
+  loadingContainer: {
+    marginTop: theme.spacing.xl,
+    marginHorizontal: theme.spacing.md,
+    padding: theme.spacing.xl,
+    backgroundColor: theme.colors.dark.card,
+    borderRadius: theme.borderRadius.md,
+    alignItems: 'center',
+  },
+  loadingText: {
+    ...theme.typography.subheadline,
     color: theme.colors.dark.textSecondary,
   },
 });

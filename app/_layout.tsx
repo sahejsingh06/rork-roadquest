@@ -1,17 +1,25 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar } from "expo-status-bar";
 import { TripProvider } from "@/contexts/TripContext";
 import { UserProvider } from "@/contexts/UserContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { StoreProvider } from "@/contexts/StoreContext";
+import { trpc, createTRPCClient } from "@/lib/trpc";
 
 SplashScreen.preventAutoHideAsync();
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function RootLayoutNav() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -70,19 +78,37 @@ function RootLayoutNav() {
   );
 }
 
+function TRPCWrapper({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  
+  const trpcClient = useMemo(() => {
+    return createTRPCClient(user?.id);
+  }, [user?.id]);
+
+  return (
+    <trpc.Provider client={trpcClient} queryClient={queryClient}>
+      <QueryClientProvider client={queryClient}>
+        {children}
+      </QueryClientProvider>
+    </trpc.Provider>
+  );
+}
+
 export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <UserProvider>
-          <StoreProvider>
-            <TripProvider>
-              <GestureHandlerRootView style={{ flex: 1 }}>
-                <RootLayoutNav />
-              </GestureHandlerRootView>
-            </TripProvider>
-          </StoreProvider>
-        </UserProvider>
+        <TRPCWrapper>
+          <UserProvider>
+            <StoreProvider>
+              <TripProvider>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                  <RootLayoutNav />
+                </GestureHandlerRootView>
+              </TripProvider>
+            </StoreProvider>
+          </UserProvider>
+        </TRPCWrapper>
       </AuthProvider>
     </QueryClientProvider>
   );

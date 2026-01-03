@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, Pressable, TextInput, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { Camera, X, Plus, Edit3, MapPin, Car as CarIcon, Trash2, Settings } from 'lucide-react-native';
+import { Camera, X, Plus, Edit3, MapPin, Car as CarIcon, Trash2, Settings, Users, UserPlus, Check, Search } from 'lucide-react-native';
 import { useTrip } from '@/contexts/TripContext';
 import { useUser } from '@/contexts/UserContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { theme } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { trpc } from '@/lib/trpc';
 import type { Car } from '@/types/user';
 
 const CAR_BRANDS = [
@@ -45,11 +46,31 @@ export default function ProfileScreen() {
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isRegionModalVisible, setIsRegionModalVisible] = useState(false);
   const [isCarModalVisible, setIsCarModalVisible] = useState(false);
+  const [isFriendsModalVisible, setIsFriendsModalVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [username, setUsername] = useState('');
   const [carBrand, setCarBrand] = useState('');
   const [carModel, setCarModel] = useState('');
   const [carYear, setCarYear] = useState('');
   const [selectedCarIcon, setSelectedCarIcon] = useState('🚗');
+
+  const friendsQuery = trpc.friends.list.useQuery(undefined, { refetchInterval: 10000 });
+  const searchQuery2 = trpc.user.search.useQuery(
+    { query: searchQuery },
+    { enabled: searchQuery.length > 2 }
+  );
+  const sendRequestMutation = trpc.friends.sendRequest.useMutation({
+    onSuccess: () => friendsQuery.refetch(),
+  });
+  const acceptRequestMutation = trpc.friends.acceptRequest.useMutation({
+    onSuccess: () => friendsQuery.refetch(),
+  });
+  const rejectRequestMutation = trpc.friends.rejectRequest.useMutation({
+    onSuccess: () => friendsQuery.refetch(),
+  });
+  const removeFriendMutation = trpc.friends.removeFriend.useMutation({
+    onSuccess: () => friendsQuery.refetch(),
+  });
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -307,6 +328,143 @@ export default function ProfileScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
+      <Modal
+        visible={isFriendsModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsFriendsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '90%' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Friends</Text>
+              <Pressable onPress={() => setIsFriendsModalVisible(false)}>
+                <X size={24} color={theme.colors.dark.textSecondary} />
+              </Pressable>
+            </View>
+
+            <View style={styles.searchContainer}>
+              <Search size={20} color={theme.colors.dark.textSecondary} />
+              <TextInput
+                style={styles.searchInput}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Search users..."
+                placeholderTextColor={theme.colors.dark.textTertiary}
+                autoCapitalize="none"
+              />
+            </View>
+
+            <ScrollView style={styles.friendsModalContent}>
+              {searchQuery.length > 2 && searchQuery2.data && searchQuery2.data.length > 0 && (
+                <View style={styles.searchResults}>
+                  <Text style={styles.friendsModalSectionTitle}>Search Results</Text>
+                  {searchQuery2.data.map((user) => {
+                    const isFriend = friendsQuery.data?.friends.some(f => f.userId === user.id);
+                    const hasPendingRequest = friendsQuery.data?.sentRequests.some(r => r.userId === user.id);
+                    const isCurrentUser = user.id === userProfile?.id;
+                    
+                    if (isCurrentUser) return null;
+                    
+                    return (
+                      <View key={user.id} style={styles.userCard}>
+                        <View style={styles.userInfo}>
+                          <View style={styles.userAvatar}>
+                            {user.photoUrl ? (
+                              <Image source={{ uri: user.photoUrl }} style={styles.userAvatarImage} />
+                            ) : (
+                              <Text style={styles.userAvatarText}>
+                                {user.username.charAt(0).toUpperCase()}
+                              </Text>
+                            )}
+                          </View>
+                          <View style={styles.userDetails}>
+                            <Text style={styles.userUsername}>{user.username}</Text>
+                            {user.region && (
+                              <Text style={styles.userRegion}>{user.region}</Text>
+                            )}
+                          </View>
+                        </View>
+                        {isFriend ? (
+                          <Text style={styles.friendLabel}>Friend</Text>
+                        ) : hasPendingRequest ? (
+                          <Text style={styles.pendingLabel}>Pending</Text>
+                        ) : (
+                          <Pressable
+                            style={styles.addFriendButton}
+                            onPress={() => sendRequestMutation.mutate({ friendId: user.id })}
+                            disabled={sendRequestMutation.isPending}
+                          >
+                            <UserPlus size={18} color={theme.colors.dark.background} />
+                          </Pressable>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+
+              {friendsQuery.data && friendsQuery.data.friends.length > 0 && (
+                <View style={styles.friendsSection}>
+                  <Text style={styles.friendsModalSectionTitle}>My Friends ({friendsQuery.data.friends.length})</Text>
+                  {friendsQuery.data.friends.map((friend) => (
+                    <View key={friend.userId} style={styles.friendCard}>
+                      <View style={styles.friendInfo}>
+                        <View style={styles.friendAvatar}>
+                          {friend.photoUrl ? (
+                            <Image source={{ uri: friend.photoUrl }} style={styles.friendAvatarImage} />
+                          ) : (
+                            <Text style={styles.friendAvatarText}>
+                              {friend.username.charAt(0).toUpperCase()}
+                            </Text>
+                          )}
+                        </View>
+                        <View style={styles.friendDetails}>
+                          <Text style={styles.friendUsername}>{friend.username}</Text>
+                          {friend.region && (
+                            <Text style={styles.friendRegion}>{friend.region}</Text>
+                          )}
+                        </View>
+                      </View>
+                      <Pressable
+                        style={styles.removeFriendButton}
+                        onPress={() => removeFriendMutation.mutate({ friendshipId: friend.friendshipId })}
+                        disabled={removeFriendMutation.isPending}
+                      >
+                        <X size={18} color={theme.colors.dark.danger} />
+                      </Pressable>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {friendsQuery.data && friendsQuery.data.sentRequests.length > 0 && (
+                <View style={styles.sentRequestsSection}>
+                  <Text style={styles.friendsModalSectionTitle}>Sent Requests ({friendsQuery.data.sentRequests.length})</Text>
+                  {friendsQuery.data.sentRequests.map((request) => (
+                    <View key={request.friendshipId} style={styles.sentRequestCard}>
+                      <Text style={styles.sentRequestUsername}>{request.username}</Text>
+                      <Text style={styles.sentRequestStatus}>Pending</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {friendsQuery.data && 
+               friendsQuery.data.friends.length === 0 && 
+               friendsQuery.data.sentRequests.length === 0 &&
+               searchQuery.length <= 2 && (
+                <View style={styles.emptyState}>
+                  <Users size={48} color={theme.colors.dark.textTertiary} />
+                  <Text style={styles.emptyStateText}>No friends yet</Text>
+                  <Text style={styles.emptyStateSubtext}>Search for users above to add friends</Text>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -387,6 +545,66 @@ export default function ProfileScreen() {
               <Text style={styles.statLabel}>max km/h</Text>
             </View>
           </View>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Users size={20} color={theme.colors.dark.text} />
+            <Text style={styles.sectionTitle}>Friends</Text>
+          </View>
+
+          <Pressable 
+            style={styles.friendsButton} 
+            onPress={() => setIsFriendsModalVisible(true)}
+          >
+            <UserPlus size={20} color={theme.colors.dark.accent} />
+            <Text style={styles.friendsButtonText}>Manage Friends</Text>
+            {friendsQuery.data && (
+              <View style={styles.friendsBadge}>
+                <Text style={styles.friendsBadgeText}>
+                  {friendsQuery.data.friends.length}
+                </Text>
+              </View>
+            )}
+          </Pressable>
+
+          {friendsQuery.data && friendsQuery.data.receivedRequests.length > 0 && (
+            <View style={styles.requestsContainer}>
+              <Text style={styles.requestsTitle}>Friend Requests</Text>
+              {friendsQuery.data.receivedRequests.map((request) => (
+                <View key={request.friendshipId} style={styles.requestCard}>
+                  <View style={styles.requestInfo}>
+                    <View style={styles.requestAvatar}>
+                      {request.photoUrl ? (
+                        <Image source={{ uri: request.photoUrl }} style={styles.requestAvatarImage} />
+                      ) : (
+                        <Text style={styles.requestAvatarText}>
+                          {request.username.charAt(0).toUpperCase()}
+                        </Text>
+                      )}
+                    </View>
+                    <Text style={styles.requestUsername}>{request.username}</Text>
+                  </View>
+                  <View style={styles.requestActions}>
+                    <Pressable
+                      style={styles.acceptButton}
+                      onPress={() => acceptRequestMutation.mutate({ friendshipId: request.friendshipId })}
+                      disabled={acceptRequestMutation.isPending}
+                    >
+                      <Check size={18} color={theme.colors.dark.success} />
+                    </Pressable>
+                    <Pressable
+                      style={styles.rejectButton}
+                      onPress={() => rejectRequestMutation.mutate({ friendshipId: request.friendshipId })}
+                      disabled={rejectRequestMutation.isPending}
+                    >
+                      <X size={18} color={theme.colors.dark.danger} />
+                    </Pressable>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         <Pressable 
@@ -742,5 +960,286 @@ const styles = StyleSheet.create({
     ...theme.typography.callout,
     color: theme.colors.dark.background,
     fontWeight: '600' as const,
+  },
+  friendsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.dark.card,
+    borderRadius: theme.borderRadius.lg,
+    paddingVertical: theme.spacing.lg,
+    gap: theme.spacing.sm,
+    borderWidth: 2,
+    borderColor: theme.colors.dark.border,
+  },
+  friendsButtonText: {
+    ...theme.typography.callout,
+    color: theme.colors.dark.accent,
+    fontWeight: '600' as const,
+  },
+  friendsBadge: {
+    backgroundColor: theme.colors.dark.accent,
+    borderRadius: 12,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 2,
+    minWidth: 24,
+    alignItems: 'center',
+  },
+  friendsBadgeText: {
+    ...theme.typography.caption1,
+    color: theme.colors.dark.background,
+    fontWeight: '700' as const,
+  },
+  requestsContainer: {
+    marginTop: theme.spacing.md,
+    gap: theme.spacing.sm,
+  },
+  requestsTitle: {
+    ...theme.typography.footnote,
+    color: theme.colors.dark.textSecondary,
+    marginBottom: theme.spacing.xs,
+    textTransform: 'uppercase' as const,
+  },
+  requestCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: theme.colors.dark.card,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md,
+  },
+  requestInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+    flex: 1,
+  },
+  requestAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.dark.backgroundSecondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  requestAvatarImage: {
+    width: 40,
+    height: 40,
+  },
+  requestAvatarText: {
+    ...theme.typography.callout,
+    color: theme.colors.dark.text,
+    fontWeight: '600' as const,
+  },
+  requestUsername: {
+    ...theme.typography.callout,
+    color: theme.colors.dark.text,
+    fontWeight: '600' as const,
+  },
+  requestActions: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  acceptButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.dark.cardElevated,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rejectButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.dark.cardElevated,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    backgroundColor: theme.colors.dark.cardElevated,
+    borderRadius: theme.borderRadius.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+  },
+  searchInput: {
+    flex: 1,
+    ...theme.typography.body,
+    color: theme.colors.dark.text,
+    paddingVertical: theme.spacing.sm,
+  },
+  friendsModalContent: {
+    flex: 1,
+  },
+  searchResults: {
+    marginBottom: theme.spacing.lg,
+  },
+  friendsModalSectionTitle: {
+    ...theme.typography.footnote,
+    color: theme.colors.dark.textSecondary,
+    marginBottom: theme.spacing.md,
+    textTransform: 'uppercase' as const,
+    fontWeight: '600' as const,
+  },
+  userCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: theme.colors.dark.cardElevated,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+  },
+  userInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+    flex: 1,
+  },
+  userAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.dark.backgroundSecondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  userAvatarImage: {
+    width: 40,
+    height: 40,
+  },
+  userAvatarText: {
+    ...theme.typography.callout,
+    color: theme.colors.dark.text,
+    fontWeight: '600' as const,
+  },
+  userDetails: {
+    flex: 1,
+  },
+  userUsername: {
+    ...theme.typography.callout,
+    color: theme.colors.dark.text,
+    fontWeight: '600' as const,
+  },
+  userRegion: {
+    ...theme.typography.caption1,
+    color: theme.colors.dark.textSecondary,
+  },
+  friendLabel: {
+    ...theme.typography.caption1,
+    color: theme.colors.dark.success,
+    fontWeight: '600' as const,
+  },
+  pendingLabel: {
+    ...theme.typography.caption1,
+    color: theme.colors.dark.textSecondary,
+    fontWeight: '600' as const,
+  },
+  addFriendButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.dark.accent,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  friendsSection: {
+    marginBottom: theme.spacing.lg,
+  },
+  friendCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: theme.colors.dark.cardElevated,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+  },
+  friendInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+    flex: 1,
+  },
+  friendAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.dark.backgroundSecondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  friendAvatarImage: {
+    width: 40,
+    height: 40,
+  },
+  friendAvatarText: {
+    ...theme.typography.callout,
+    color: theme.colors.dark.text,
+    fontWeight: '600' as const,
+  },
+  friendDetails: {
+    flex: 1,
+  },
+  friendUsername: {
+    ...theme.typography.callout,
+    color: theme.colors.dark.text,
+    fontWeight: '600' as const,
+  },
+  friendRegion: {
+    ...theme.typography.caption1,
+    color: theme.colors.dark.textSecondary,
+  },
+  removeFriendButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.dark.cardElevated,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sentRequestsSection: {
+    marginBottom: theme.spacing.lg,
+  },
+  sentRequestCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: theme.colors.dark.cardElevated,
+    borderRadius: theme.borderRadius.md,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+  },
+  sentRequestUsername: {
+    ...theme.typography.callout,
+    color: theme.colors.dark.text,
+    fontWeight: '600' as const,
+  },
+  sentRequestStatus: {
+    ...theme.typography.caption1,
+    color: theme.colors.dark.textSecondary,
+    fontWeight: '600' as const,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: theme.spacing.xxl,
+    gap: theme.spacing.md,
+  },
+  emptyStateText: {
+    ...theme.typography.headline,
+    color: theme.colors.dark.textSecondary,
+    fontWeight: '600' as const,
+  },
+  emptyStateSubtext: {
+    ...theme.typography.subheadline,
+    color: theme.colors.dark.textTertiary,
+    textAlign: 'center',
   },
 });
