@@ -1,10 +1,12 @@
-import React, { useMemo, useCallback } from 'react';
-import { StyleSheet, Text, View, ScrollView, Dimensions, Platform } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import React, { useMemo, useCallback, useRef, useState } from 'react';
+import { StyleSheet, Text, View, ScrollView, Dimensions, Platform, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { useLocalSearchParams, Stack } from 'expo-router';
 import MapView, { Polyline, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import { Calendar, Clock, Zap, Route, Gauge, TrendingUp, Award } from 'lucide-react-native';
+import { Calendar, Clock, Zap, Route, Gauge, TrendingUp, Award, Share2 } from 'lucide-react-native';
 import { useTrip } from '@/contexts/TripContext';
 import { theme } from '@/constants/theme';
+import { captureRef } from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
 
 const { width } = Dimensions.get('window');
 const CHART_HEIGHT = 200;
@@ -13,6 +15,8 @@ const CHART_WIDTH = width - theme.spacing.lg * 2;
 export default function TripSummaryScreen() {
   const { id } = useLocalSearchParams();
   const { trips, useKmh } = useTrip();
+  const shareViewRef = useRef<View>(null);
+  const [isSharing, setIsSharing] = useState(false);
 
   const trip = useMemo(() => {
     return trips.find(t => t.id === id);
@@ -109,6 +113,38 @@ export default function TripSummaryScreen() {
   const startLocation = trip?.locations[0];
   const endLocation = trip?.locations[trip?.locations.length - 1];
 
+  const handleShare = async () => {
+    if (!shareViewRef.current) return;
+    
+    if (Platform.OS === 'web') {
+      Alert.alert('Share unavailable', 'Sharing is not supported on web');
+      return;
+    }
+
+    try {
+      setIsSharing(true);
+      const uri = await captureRef(shareViewRef, {
+        format: 'png',
+        quality: 0.9,
+      });
+
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (isAvailable) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'image/png',
+          dialogTitle: 'Share your RoadQuest journey',
+        });
+      } else {
+        Alert.alert('Error', 'Sharing is not available on this device');
+      }
+    } catch (error) {
+      console.error('Error sharing:', error);
+      Alert.alert('Error', 'Failed to share trip');
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
   if (!trip) {
     return (
       <View style={styles.container}>
@@ -151,11 +187,35 @@ export default function TripSummaryScreen() {
 
   return (
     <View style={styles.container}>
+      <Stack.Screen 
+        options={{
+          title: 'Trip Details',
+          headerRight: () => (
+            <TouchableOpacity 
+              onPress={handleShare}
+              disabled={isSharing}
+              style={styles.shareButton}
+            >
+              {isSharing ? (
+                <ActivityIndicator size="small" color={theme.colors.dark.accent} />
+              ) : (
+                <Share2 size={22} color={theme.colors.dark.accent} />
+              )}
+            </TouchableOpacity>
+          ),
+        }}
+      />
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        <View ref={shareViewRef} collapsable={false} style={styles.shareContainer}>
+          <View style={styles.shareBranding}>
+            <Text style={styles.shareBrandingText}>RoadQuest</Text>
+            <Text style={styles.shareBrandingSubtext}>Track • Explore • Compete</Text>
+          </View>
+          
         <View style={styles.mapContainer}>
           <MapView
             style={styles.map}
@@ -309,6 +369,26 @@ export default function TripSummaryScreen() {
             </View>
           </View>
 
+          <View style={styles.shareStatsCard}>
+            <View style={styles.shareStatsRow}>
+              <View style={styles.shareStatItem}>
+                <Text style={styles.shareStatValue}>{trip.distance.toFixed(1)} km</Text>
+                <Text style={styles.shareStatLabel}>Distance</Text>
+              </View>
+              <View style={styles.shareStatItem}>
+                <Text style={styles.shareStatValue}>{formatDuration(trip.duration)}</Text>
+                <Text style={styles.shareStatLabel}>Duration</Text>
+              </View>
+              <View style={styles.shareStatItem}>
+                <Text style={styles.shareStatValue}>{Math.round(useKmh ? trip.avgSpeed : trip.avgSpeed * 0.621371)}</Text>
+                <Text style={styles.shareStatLabel}>Avg Speed</Text>
+              </View>
+            </View>
+            <View style={styles.shareFooter}>
+              <Text style={styles.shareFooterText}>🏆 +{gpsPoints} GP Earned</Text>
+            </View>
+          </View>
+
           <View style={styles.chartSection}>
             <Text style={styles.chartTitle}>Speed Over Time</Text>
             <View style={styles.chartContainer}>
@@ -344,6 +424,7 @@ export default function TripSummaryScreen() {
             </View>
           </View>
         </View>
+      </View>
       </ScrollView>
     </View>
   );
@@ -591,5 +672,67 @@ const styles = StyleSheet.create({
   errorText: {
     ...theme.typography.title3,
     color: theme.colors.dark.textSecondary,
+  },
+  shareButton: {
+    padding: theme.spacing.sm,
+    marginRight: theme.spacing.xs,
+  },
+  shareContainer: {
+    backgroundColor: theme.colors.dark.background,
+  },
+  shareBranding: {
+    backgroundColor: theme.colors.dark.card,
+    padding: theme.spacing.lg,
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: theme.colors.dark.accent,
+  },
+  shareBrandingText: {
+    ...theme.typography.title1,
+    color: theme.colors.dark.accent,
+    fontWeight: '800' as const,
+    letterSpacing: 1,
+  },
+  shareBrandingSubtext: {
+    ...theme.typography.caption1,
+    color: theme.colors.dark.textSecondary,
+    marginTop: theme.spacing.xs,
+    letterSpacing: 2,
+  },
+  shareStatsCard: {
+    backgroundColor: theme.colors.dark.card,
+    marginHorizontal: theme.spacing.lg,
+    marginTop: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+  },
+  shareStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  shareStatItem: {
+    alignItems: 'center',
+  },
+  shareStatValue: {
+    ...theme.typography.title3,
+    color: theme.colors.dark.text,
+    fontWeight: '700' as const,
+  },
+  shareStatLabel: {
+    ...theme.typography.caption1,
+    color: theme.colors.dark.textSecondary,
+    marginTop: theme.spacing.xs,
+  },
+  shareFooter: {
+    marginTop: theme.spacing.md,
+    paddingTop: theme.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.dark.border,
+    alignItems: 'center',
+  },
+  shareFooterText: {
+    ...theme.typography.callout,
+    color: theme.colors.dark.accent,
+    fontWeight: '600' as const,
   },
 });
