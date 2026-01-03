@@ -56,9 +56,9 @@ export default function ProfileScreen() {
   const [selectedCarIcon, setSelectedCarIcon] = useState('🚗');
 
   const friendsQuery = trpc.friends.list.useQuery(undefined, { refetchInterval: 10000 });
-  const searchQuery2 = trpc.user.search.useQuery(
+  const searchUsersQuery = trpc.user.search.useQuery(
     { query: searchQuery },
-    { enabled: searchQuery.length > 2 }
+    { enabled: searchQuery.length > 0 }
   );
   const sendRequestMutation = trpc.friends.sendRequest.useMutation({
     onSuccess: () => friendsQuery.refetch(),
@@ -390,10 +390,10 @@ export default function ProfileScreen() {
             </View>
 
             <ScrollView style={styles.friendsModalScrollView}>
-              {searchQuery.length > 2 && searchQuery2.data && searchQuery2.data.length > 0 && (
+              {searchQuery.length > 0 && searchUsersQuery.data && searchUsersQuery.data.length > 0 && (
                 <View style={styles.searchResults}>
                   <Text style={styles.friendsModalSectionTitle}>Search Results</Text>
-                  {searchQuery2.data.map((user) => {
+                  {searchUsersQuery.data.map((user) => {
                     const isFriend = friendsQuery.data?.friends.some(f => f.userId === user.id);
                     const hasPendingRequest = friendsQuery.data?.sentRequests.some(r => r.userId === user.id);
                     const isCurrentUser = user.id === userProfile?.id;
@@ -490,7 +490,7 @@ export default function ProfileScreen() {
               {friendsQuery.data && 
                friendsQuery.data.friends.length === 0 && 
                friendsQuery.data.sentRequests.length === 0 &&
-               searchQuery.length <= 2 && (
+               searchQuery.length === 0 && (
                 <View style={styles.emptyState}>
                   <Users size={48} color={theme.colors.dark.textTertiary} />
                   <Text style={styles.emptyStateText}>No friends yet</Text>

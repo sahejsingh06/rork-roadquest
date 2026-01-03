@@ -55,7 +55,13 @@ export default function LeaderboardScreen() {
   const syncMutation = trpc.user.sync.useMutation();
 
   useEffect(() => {
-    if (authUser && userProfile && !syncMutation.isPending) {
+    if (authUser && userProfile) {
+      console.log('Syncing user to leaderboard:', {
+        userId: authUser.id,
+        username: userProfile.username,
+        photoUrl: userProfile.photoUrl,
+        stats: localStats,
+      });
       syncMutation.mutate({
         username: userProfile.username,
         email: authUser.email,
@@ -68,7 +74,7 @@ export default function LeaderboardScreen() {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authUser, userProfile, localStats]);
+  }, [authUser?.id, userProfile?.username, userProfile?.photoUrl, localStats.totalDistance, localStats.totalTrips, localStats.totalGPSPoints]);
 
   const leaderboardQuery = trpc.leaderboard.get.useQuery(
     {
@@ -78,7 +84,7 @@ export default function LeaderboardScreen() {
     },
     {
       enabled: !!authUser,
-      refetchInterval: 30000,
+      refetchInterval: 10000,
     }
   );
 

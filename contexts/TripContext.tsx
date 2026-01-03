@@ -80,7 +80,23 @@ export const [TripProvider, useTrip] = createContextHook(() => {
       if (Platform.OS !== 'web') {
         const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
         if (backgroundStatus !== 'granted') {
-          console.log('Background location permission not granted');
+          Alert.alert(
+            'Background Location Required',
+            'For accurate trip tracking, please enable "Always Allow" location access in Settings. This allows the app to track your route even when not in use.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { 
+                text: 'Open Settings', 
+                onPress: () => {
+                  if (Platform.OS === 'ios') {
+                    Location.requestBackgroundPermissionsAsync();
+                  }
+                }
+              }
+            ]
+          );
+        } else {
+          console.log('Background location permission granted');
         }
       }
 
@@ -187,8 +203,8 @@ export const [TripProvider, useTrip] = createContextHook(() => {
       const subscription = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.BestForNavigation,
-          timeInterval: 1000,
-          distanceInterval: 3,
+          timeInterval: 500,
+          distanceInterval: 1,
           mayShowUserSettingsDialog: true,
         },
         (location) => {
