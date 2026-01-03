@@ -334,16 +334,30 @@ export default function ProfileScreen() {
         animationType="slide"
         onRequestClose={() => setIsFriendsModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxHeight: '90%' }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Friends</Text>
-              <Pressable onPress={() => setIsFriendsModalVisible(false)}>
-                <X size={24} color={theme.colors.dark.textSecondary} />
-              </Pressable>
-            </View>
+        <View style={styles.friendsModalOverlay}>
+          <Pressable 
+            style={styles.friendsModalBackdrop} 
+            onPress={() => setIsFriendsModalVisible(false)}
+          >
+            <Pressable 
+              style={styles.friendsModalContent} 
+              onPress={(e) => e.stopPropagation()}
+            >
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Friends</Text>
+                <Pressable 
+                  onPress={() => {
+                    console.log('Close friends modal');
+                    setIsFriendsModalVisible(false);
+                  }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  style={styles.closeButton}
+                >
+                  <X size={24} color={theme.colors.dark.textSecondary} />
+                </Pressable>
+              </View>
 
-            <View style={styles.searchContainer}>
+              <View style={styles.searchContainer}>
               <Search size={20} color={theme.colors.dark.textSecondary} />
               <TextInput
                 style={styles.searchInput}
@@ -355,7 +369,7 @@ export default function ProfileScreen() {
               />
             </View>
 
-            <ScrollView style={styles.friendsModalContent}>
+            <ScrollView style={styles.friendsModalScrollView}>
               {searchQuery.length > 2 && searchQuery2.data && searchQuery2.data.length > 0 && (
                 <View style={styles.searchResults}>
                   <Text style={styles.friendsModalSectionTitle}>Search Results</Text>
@@ -392,7 +406,10 @@ export default function ProfileScreen() {
                         ) : (
                           <Pressable
                             style={styles.addFriendButton}
-                            onPress={() => sendRequestMutation.mutate({ friendId: user.id })}
+                            onPress={() => {
+                              console.log('Sending friend request to:', user.id);
+                              sendRequestMutation.mutate({ friendId: user.id });
+                            }}
                             disabled={sendRequestMutation.isPending}
                           >
                             <UserPlus size={18} color={theme.colors.dark.background} />
@@ -460,8 +477,9 @@ export default function ProfileScreen() {
                   <Text style={styles.emptyStateSubtext}>Search for users above to add friends</Text>
                 </View>
               )}
-            </ScrollView>
-          </View>
+              </ScrollView>
+            </Pressable>
+          </Pressable>
         </View>
       </Modal>
 
@@ -826,6 +844,28 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
   },
+  friendsModalOverlay: {
+    flex: 1,
+  },
+  friendsModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.lg,
+  },
+  friendsModalContent: {
+    backgroundColor: theme.colors.dark.card,
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing.xl,
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '90%',
+  },
+  closeButton: {
+    padding: theme.spacing.sm,
+    zIndex: 999,
+  },
   modalOverlayPressable: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.85)',
@@ -1073,7 +1113,7 @@ const styles = StyleSheet.create({
     color: theme.colors.dark.text,
     paddingVertical: theme.spacing.sm,
   },
-  friendsModalContent: {
+  friendsModalScrollView: {
     flex: 1,
   },
   searchResults: {
