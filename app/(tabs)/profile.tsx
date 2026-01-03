@@ -42,7 +42,7 @@ const REGIONS = [
 
 export default function ProfileScreen() {
   const { stats } = useTrip();
-  const { userProfile, updateUsername, updateProfilePhoto, updateRegion, addCar, removeCar } = useUser();
+  const { userProfile, updateUsername, updateProfilePhoto, updateRegion, addCar, removeCar, canChangeUsername, daysUntilUsernameChange } = useUser();
   const { signOut } = useAuth();
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isRegionModalVisible, setIsRegionModalVisible] = useState(false);
@@ -95,9 +95,15 @@ export default function ProfileScreen() {
 
   const handleSaveUsername = async () => {
     if (username.trim().length === 0) return;
-    await updateUsername(username);
-    setIsEditModalVisible(false);
-    setUsername('');
+    try {
+      await updateUsername(username);
+      setIsEditModalVisible(false);
+      setUsername('');
+    } catch (error) {
+      if (error instanceof Error) {
+        Alert.alert('Cannot Change Username', error.message);
+      }
+    }
   };
 
   const handleSelectRegion = async (region: string) => {
@@ -125,6 +131,13 @@ export default function ProfileScreen() {
   };
 
   const openEditModal = () => {
+    if (!canChangeUsername()) {
+      Alert.alert(
+        'Username Change Locked',
+        `You can change your username in ${daysUntilUsernameChange()} days. Usernames can only be changed once per year.`
+      );
+      return;
+    }
     setUsername(userProfile?.username || '');
     setIsEditModalVisible(true);
   };

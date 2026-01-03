@@ -13,4 +13,5 @@ export interface UserProfile {
   photoUrl?: string;
   region?: string;
   cars: Car[];
+  usernameSetAt?: number;
 }

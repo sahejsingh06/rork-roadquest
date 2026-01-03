@@ -73,9 +73,19 @@ export const [UserProvider, useUser] = createContextHook(() => {
   const updateUsername = useCallback(async (username: string) => {
     if (!userProfile || !authUser) return;
     
+    const now = Date.now();
+    const oneYearInMs = 365 * 24 * 60 * 60 * 1000;
+    
+    if (userProfile.usernameSetAt && (now - userProfile.usernameSetAt) < oneYearInMs) {
+      const timeLeft = oneYearInMs - (now - userProfile.usernameSetAt);
+      const daysLeft = Math.ceil(timeLeft / (24 * 60 * 60 * 1000));
+      throw new Error(`You can change your username in ${daysLeft} days`);
+    }
+    
     const updatedProfile: UserProfile = {
       ...userProfile,
       username: username.trim(),
+      usernameSetAt: now,
     };
     setUserProfile(updatedProfile);
     await saveUserProfile(updatedProfile, authUser.id);
@@ -134,6 +144,21 @@ export const [UserProvider, useUser] = createContextHook(() => {
     }
   }, []);
 
+  const canChangeUsername = useCallback(() => {
+    if (!userProfile || !userProfile.usernameSetAt) return true;
+    const now = Date.now();
+    const oneYearInMs = 365 * 24 * 60 * 60 * 1000;
+    return (now - userProfile.usernameSetAt) >= oneYearInMs;
+  }, [userProfile]);
+
+  const daysUntilUsernameChange = useCallback(() => {
+    if (!userProfile || !userProfile.usernameSetAt) return 0;
+    const now = Date.now();
+    const oneYearInMs = 365 * 24 * 60 * 60 * 1000;
+    const timeLeft = oneYearInMs - (now - userProfile.usernameSetAt);
+    return Math.ceil(timeLeft / (24 * 60 * 60 * 1000));
+  }, [userProfile]);
+
   return {
     userProfile,
     isLoading,
@@ -144,5 +169,7 @@ export const [UserProvider, useUser] = createContextHook(() => {
     addCar,
     removeCar,
     markOnboardingAsSeen,
+    canChangeUsername,
+    daysUntilUsernameChange,
   };
 });

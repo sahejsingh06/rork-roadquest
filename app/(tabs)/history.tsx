@@ -5,15 +5,29 @@ import { Trash2, ChevronRight, TrendingUp, Route, Clock, Zap, Car as CarIcon, Ba
 import { useTrip } from '@/contexts/TripContext';
 import { useUser } from '@/contexts/UserContext';
 import { theme } from '@/constants/theme';
+import { trpc } from '@/lib/trpc';
+import { Image } from 'expo-image';
+import type { Trip } from '@/types/trip';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type TimePeriod = 'daily' | 'weekly' | 'monthly' | 'all';
+type ViewMode = 'my-trips' | 'friends-trips';
 
 export default function HistoryScreen() {
   const { trips, deleteTrip, useKmh } = useTrip();
   const { userProfile } = useUser();
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('all');
   const [selectedCarId, setSelectedCarId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('my-trips');
+
+  const friendsTripsQuery = trpc.trips.getFriendsTrips.useQuery(undefined, {
+    enabled: viewMode === 'friends-trips',
+    refetchInterval: 30000,
+  });
+
+  const displayTrips: Trip[] = useMemo(() => {
+    return viewMode === 'my-trips' ? trips : (friendsTripsQuery.data || []);
+  }, [viewMode, trips, friendsTripsQuery.data]);
 
   const filteredTrips = useMemo(() => {
     const now = new Date();
@@ -21,20 +35,20 @@ export default function HistoryScreen() {
     const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay()).getTime();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 
-    let filtered = trips;
+    let filtered = displayTrips;
 
     switch (selectedPeriod) {
       case 'daily':
-        filtered = trips.filter(trip => trip.startTime >= startOfDay);
+        filtered = displayTrips.filter(trip => trip.startTime >= startOfDay);
         break;
       case 'weekly':
-        filtered = trips.filter(trip => trip.startTime >= startOfWeek);
+        filtered = displayTrips.filter(trip => trip.startTime >= startOfWeek);
         break;
       case 'monthly':
-        filtered = trips.filter(trip => trip.startTime >= startOfMonth);
+        filtered = displayTrips.filter(trip => trip.startTime >= startOfMonth);
         break;
       default:
-        filtered = trips;
+        filtered = displayTrips;
     }
 
     if (selectedCarId) {
@@ -42,7 +56,7 @@ export default function HistoryScreen() {
     }
 
     return filtered;
-  }, [trips, selectedPeriod, selectedCarId]);
+  }, [displayTrips, selectedPeriod, selectedCarId]);
 
   const periodStats = useMemo(() => {
     const totalDistance = filteredTrips.reduce((sum, trip) => sum + trip.distance, 0);
@@ -140,6 +154,41 @@ export default function HistoryScreen() {
           <ChevronRight size={20} color={theme.colors.dark.textSecondary} />
         </Pressable>
 
+        <View style={styles.viewModeSelector}>
+          <Pressable
+            style={[
+              styles.viewModeTab,
+              viewMode === 'my-trips' && styles.viewModeTabActive,
+            ]}
+            onPress={() => setViewMode('my-trips')}
+          >
+            <Text
+              style={[
+                styles.viewModeTabText,
+                viewMode === 'my-trips' && styles.viewModeTabTextActive,
+              ]}
+            >
+              My Trips
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[
+              styles.viewModeTab,
+              viewMode === 'friends-trips' && styles.viewModeTabActive,
+            ]}
+            onPress={() => setViewMode('friends-trips')}
+          >
+            <Text
+              style={[
+                styles.viewModeTabText,
+                viewMode === 'friends-trips' && styles.viewModeTabTextActive,
+              ]}
+            >
+              Friends&apos; Trips
+            </Text>
+          </Pressable>
+        </View>
+
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -228,9 +277,13 @@ export default function HistoryScreen() {
         {filteredTrips.length === 0 ? (
           <View style={styles.emptyState}>
             <TrendingUp size={64} color={theme.colors.dark.textTertiary} strokeWidth={1.5} />
-            <Text style={styles.emptyTitle}>No Trips {selectedPeriod !== 'all' ? 'This Period' : 'Yet'}</Text>
+            <Text style={styles.emptyTitle}>
+              {viewMode === 'friends-trips' ? 'No Friends Trips' : `No Trips ${selectedPeriod !== 'all' ? 'This Period' : 'Yet'}`}
+            </Text>
             <Text style={styles.emptyText}>
-              {selectedPeriod !== 'all' 
+              {viewMode === 'friends-trips'
+                ? 'Your friends haven\'t shared any trips yet'
+                : selectedPeriod !== 'all' 
                 ? 'No trips recorded for this time period'
                 : 'Start your first drive to begin tracking your journeys'}
             </Text>
@@ -240,14 +293,28 @@ export default function HistoryScreen() {
             <View key={trip.id} style={styles.tripCard}>
               <Pressable
                 style={styles.tripContent}
-                onPress={() => router.push({ pathname: '/trip-summary/[id]', params: { id: trip.id } })}
+                onPress={() => viewMode === 'my-trips' ? router.push({ pathname: '/trip-summary/[id]', params: { id: trip.id } }) : null}
               >
                 <View style={styles.tripHeader}>
                   <View style={styles.tripHeaderLeft}>
+                    {viewMode === 'friends-trips' && trip.username && (
+                      <View style={styles.friendTripUser}>
+                        <View style={styles.friendTripAvatar}>
+                          {trip.userPhotoUrl ? (
+                            <Image source={{ uri: trip.userPhotoUrl }} style={styles.friendTripAvatarImage} />
+                          ) : (
+                            <Text style={styles.friendTripAvatarText}>
+                              {trip.username.charAt(0).toUpperCase()}
+                            </Text>
+                          )}
+                        </View>
+                        <Text style={styles.friendTripUsername}>{trip.username}</Text>
+                      </View>
+                    )}
                     {trip.carIcon && <Text style={styles.tripCarIcon}>{trip.carIcon}</Text>}
                     <Text style={styles.tripDate}>{formatDate(trip.startTime)}</Text>
                   </View>
-                  <ChevronRight size={20} color={theme.colors.dark.textSecondary} />
+                  {viewMode === 'my-trips' && <ChevronRight size={20} color={theme.colors.dark.textSecondary} />}
                 </View>
 
                 <View style={styles.tripStats}>
@@ -272,12 +339,14 @@ export default function HistoryScreen() {
                 </View>
               </Pressable>
 
-              <Pressable
-                style={styles.deleteButton}
-                onPress={() => handleDelete(trip.id)}
-              >
-                <Trash2 size={20} color={theme.colors.dark.danger} />
-              </Pressable>
+              {viewMode === 'my-trips' && (
+                <Pressable
+                  style={styles.deleteButton}
+                  onPress={() => handleDelete(trip.id)}
+                >
+                  <Trash2 size={20} color={theme.colors.dark.danger} />
+                </Pressable>
+              )}
             </View>
           ))
         )}
@@ -522,5 +591,64 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.lg,
     backgroundColor: theme.colors.dark.cardElevated,
+  },
+  viewModeSelector: {
+    flexDirection: 'row',
+    paddingHorizontal: theme.spacing.lg,
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+  },
+  viewModeTab: {
+    flex: 1,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: 'rgba(28, 28, 30, 0.6)',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  viewModeTabActive: {
+    backgroundColor: theme.colors.dark.accent,
+    borderColor: theme.colors.dark.accent,
+  },
+  viewModeTabText: {
+    ...theme.typography.callout,
+    color: theme.colors.dark.textSecondary,
+    fontWeight: '600' as const,
+    fontSize: 15,
+  },
+  viewModeTabTextActive: {
+    color: '#FFFFFF',
+  },
+  friendTripUser: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    marginRight: theme.spacing.sm,
+  },
+  friendTripAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: theme.colors.dark.backgroundSecondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  friendTripAvatarImage: {
+    width: 24,
+    height: 24,
+  },
+  friendTripAvatarText: {
+    ...theme.typography.caption1,
+    color: theme.colors.dark.text,
+    fontWeight: '600' as const,
+    fontSize: 10,
+  },
+  friendTripUsername: {
+    ...theme.typography.caption1,
+    color: theme.colors.dark.accent,
+    fontWeight: '600' as const,
   },
 });

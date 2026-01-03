@@ -1,3 +1,21 @@
+export interface DBTrip {
+  id: string;
+  userId: string;
+  username: string;
+  userPhotoUrl?: string;
+  startTime: number;
+  endTime: number;
+  distance: number;
+  maxSpeed: number;
+  avgSpeed: number;
+  duration: number;
+  carIcon?: string;
+  sharedWithFriends: boolean;
+  locations: { latitude: number; longitude: number; speed: number | null; timestamp: number; accuracy: number | null }[];
+  isPaused: boolean;
+  pausedDuration: number;
+}
+
 export interface DBUser {
   id: string;
   username: string;

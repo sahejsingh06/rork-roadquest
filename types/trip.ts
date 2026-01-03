@@ -21,6 +21,10 @@ export interface Trip {
   carBrand?: string;
   carModel?: string;
   carIcon?: string;
+  sharedWithFriends?: boolean;
+  userId?: string;
+  username?: string;
+  userPhotoUrl?: string;
 }
 
 export interface TripStats {

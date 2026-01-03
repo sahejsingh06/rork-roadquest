@@ -3,9 +3,11 @@ import { StyleSheet, Text, View, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Target, Clock, CheckCircle2, Trophy, Zap, Navigation, Moon, TrendingUp, ShoppingBag } from 'lucide-react-native';
+import { Target, Clock, CheckCircle2, Trophy, Zap, Navigation, Moon, TrendingUp, ShoppingBag, Users } from 'lucide-react-native';
 import { theme } from '@/constants/theme';
 import { useTrip } from '@/contexts/TripContext';
+import { trpc } from '@/lib/trpc';
+import { Image } from 'expo-image';
 
 type MissionPeriod = 'daily' | 'weekly' | 'monthly';
 
@@ -26,6 +28,10 @@ export default function MissionsScreen() {
   const { trips } = useTrip();
   const [selectedPeriod, setSelectedPeriod] = useState<MissionPeriod>('daily');
   const [claimedMissions, setClaimedMissions] = useState<Set<string>>(new Set());
+
+  const friendsProgressQuery = trpc.trips.getFriendsProgress.useQuery(undefined, {
+    refetchInterval: 30000,
+  });
 
   const timeUntilReset = useMemo(() => {
     const now = new Date();
@@ -447,6 +453,52 @@ export default function MissionsScreen() {
             🚗 Drive safe and explore new roads!
           </Text>
         </LinearGradient>
+
+        {friendsProgressQuery.data && friendsProgressQuery.data.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderWithIcon}>
+              <View style={styles.sectionIconCircle}>
+                <Users size={16} color={theme.colors.dark.accent} />
+              </View>
+              <Text style={styles.sectionTitle}>Friends Progress</Text>
+            </View>
+            <View style={styles.friendsProgressList}>
+              {friendsProgressQuery.data.map((friend) => (
+                <View key={friend.userId} style={styles.friendProgressCard}>
+                  <View style={styles.friendProgressHeader}>
+                    <View style={styles.friendProgressAvatar}>
+                      {friend.photoUrl ? (
+                        <Image source={{ uri: friend.photoUrl }} style={styles.friendProgressAvatarImage} />
+                      ) : (
+                        <Text style={styles.friendProgressAvatarText}>
+                          {friend.username.charAt(0).toUpperCase()}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={styles.friendProgressInfo}>
+                      <Text style={styles.friendProgressName}>{friend.username}</Text>
+                      <Text style={styles.friendProgressGP}>{friend.totalGPSPoints} GP</Text>
+                    </View>
+                  </View>
+                  <View style={styles.friendProgressStats}>
+                    <View style={styles.friendProgressStat}>
+                      <Text style={styles.friendProgressStatValue}>{friend.todayDistance.toFixed(1)} km</Text>
+                      <Text style={styles.friendProgressStatLabel}>Today</Text>
+                    </View>
+                    <View style={styles.friendProgressStat}>
+                      <Text style={styles.friendProgressStatValue}>{friend.weekDistance.toFixed(1)} km</Text>
+                      <Text style={styles.friendProgressStatLabel}>This Week</Text>
+                    </View>
+                    <View style={styles.friendProgressStat}>
+                      <Text style={styles.friendProgressStatValue}>{friend.todayTrips}</Text>
+                      <Text style={styles.friendProgressStatLabel}>Trips Today</Text>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -723,6 +775,71 @@ const styles = StyleSheet.create({
     color: theme.colors.dark.textSecondary,
     lineHeight: 24,
     textAlign: 'center',
+  },
+  friendsProgressList: {
+    gap: theme.spacing.md,
+  },
+  friendProgressCard: {
+    backgroundColor: theme.colors.dark.card,
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing.lg,
+    borderWidth: 2,
+    borderColor: theme.colors.dark.border,
+  },
+  friendProgressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+  },
+  friendProgressAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: theme.colors.dark.backgroundSecondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  friendProgressAvatarImage: {
+    width: 48,
+    height: 48,
+  },
+  friendProgressAvatarText: {
+    ...theme.typography.headline,
+    color: theme.colors.dark.text,
+    fontWeight: '600' as const,
+  },
+  friendProgressInfo: {
+    flex: 1,
+  },
+  friendProgressName: {
+    ...theme.typography.headline,
+    color: theme.colors.dark.text,
+    fontWeight: '600' as const,
+  },
+  friendProgressGP: {
+    ...theme.typography.subheadline,
+    color: theme.colors.dark.accent,
+    marginTop: 2,
+  },
+  friendProgressStats: {
+    flexDirection: 'row',
+    gap: theme.spacing.lg,
+  },
+  friendProgressStat: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  friendProgressStatValue: {
+    ...theme.typography.callout,
+    color: theme.colors.dark.text,
+    fontWeight: '700' as const,
+  },
+  friendProgressStatLabel: {
+    ...theme.typography.caption1,
+    color: theme.colors.dark.textSecondary,
+    marginTop: theme.spacing.xs,
   },
   gpStoreBadge: {
     flexDirection: 'row',

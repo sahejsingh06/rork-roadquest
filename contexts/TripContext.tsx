@@ -411,6 +411,20 @@ export const [TripProvider, useTrip] = createContextHook(() => {
     setUseKmh(prev => !prev);
   };
 
+  const toggleTripSharing = useCallback((tripId: string, shared: boolean) => {
+    setTrips((prev) => {
+      const updatedTrips = prev.map(trip => 
+        trip.id === tripId ? { ...trip, sharedWithFriends: shared } : trip
+      );
+      saveTrips(updatedTrips);
+      return updatedTrips;
+    });
+  }, []);
+
+  const getTripById = useCallback((tripId: string) => {
+    return trips.find(t => t.id === tripId);
+  }, [trips]);
+
   return {
     isTracking,
     currentTrip,
@@ -424,5 +438,7 @@ export const [TripProvider, useTrip] = createContextHook(() => {
     stopTrip,
     deleteTrip,
     toggleUnit,
+    toggleTripSharing,
+    getTripById,
   };
 });

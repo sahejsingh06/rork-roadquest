@@ -1,9 +1,10 @@
-import type { DBUser, DBFriendship, DBLeaderboardEntry } from './schema';
+import type { DBUser, DBFriendship, DBLeaderboardEntry, DBTrip } from './schema';
 
 class InMemoryDB {
   private users: Map<string, DBUser> = new Map();
   private friendships: Map<string, DBFriendship> = new Map();
   private leaderboard: Map<string, DBLeaderboardEntry> = new Map();
+  private trips: Map<string, DBTrip> = new Map();
 
   getUser(userId: string): DBUser | undefined {
     return this.users.get(userId);
@@ -48,6 +49,26 @@ class InMemoryDB {
     return Array.from(this.leaderboard.values())
       .filter(e => e.type === type && e.period === period)
       .sort((a, b) => b.value - a.value);
+  }
+
+  setTrip(trip: DBTrip): void {
+    this.trips.set(trip.id, trip);
+  }
+
+  getTrip(tripId: string): DBTrip | undefined {
+    return this.trips.get(tripId);
+  }
+
+  getUserTrips(userId: string): DBTrip[] {
+    return Array.from(this.trips.values())
+      .filter(t => t.userId === userId)
+      .sort((a, b) => b.startTime - a.startTime);
+  }
+
+  getFriendsSharedTrips(friendIds: string[]): DBTrip[] {
+    return Array.from(this.trips.values())
+      .filter(t => friendIds.includes(t.userId) && t.sharedWithFriends)
+      .sort((a, b) => b.startTime - a.startTime);
   }
 }
 
