@@ -729,7 +729,9 @@ const styles = StyleSheet.create({
   shareContainer: {
     backgroundColor: '#0A1628',
     width: 820,
-    alignSelf: 'center',
+    position: 'absolute',
+    left: -10000,
+    top: 0,
   },
   shareHeader: {
     backgroundColor: '#0F1F3D',
