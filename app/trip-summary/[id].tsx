@@ -2,7 +2,7 @@ import React, { useMemo, useCallback, useRef, useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, Dimensions, Platform, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
 import MapView, { Polyline, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import { Calendar, Clock, Zap, Route, Gauge, TrendingUp, Award, Share2, Instagram, Facebook, Twitter } from 'lucide-react-native';
+import { Calendar, Clock, Zap, Route, Gauge, TrendingUp, Award, Share2 } from 'lucide-react-native';
 import { useTrip } from '@/contexts/TripContext';
 import { theme } from '@/constants/theme';
 import { captureRef } from 'react-native-view-shot';
@@ -214,21 +214,76 @@ export default function TripSummaryScreen() {
           <View style={styles.shareHeader}>
             <View style={styles.shareBrandingTop}>
               <Text style={styles.shareBrandingText}>RoadQuest</Text>
-              <Text style={styles.shareBrandingSubtext}>Track • Explore • Compete</Text>
+              <Text style={styles.shareBrandingSubtext}>TRACK • EXPLORE • COMPETE</Text>
             </View>
-            <View style={styles.socialIconsContainer}>
-              <View style={styles.socialIcon}>
-                <Instagram size={16} color={theme.colors.dark.accent} />
+          </View>
+
+          <View style={styles.shareContent}>
+            <Text style={styles.shareMainText}>Just completed a drive on <Text style={styles.shareMainTextBold}>RoadQuest!</Text></Text>
+            
+            <View style={styles.shareMapContainer}>
+              <MapView
+                style={styles.shareMap}
+                region={region}
+                provider={Platform.OS === 'ios' ? undefined : PROVIDER_GOOGLE}
+                mapType="standard"
+                scrollEnabled={false}
+                zoomEnabled={false}
+                rotateEnabled={false}
+                pitchEnabled={false}
+                pointerEvents="none"
+              >
+                {speedSegments.map((segment, index) => (
+                  <Polyline
+                    key={index}
+                    coordinates={segment.coordinates}
+                    strokeColor={segment.color}
+                    strokeWidth={4}
+                  />
+                ))}
+                {startLocation && (
+                  <Marker
+                    coordinate={{
+                      latitude: startLocation.latitude,
+                      longitude: startLocation.longitude,
+                    }}
+                    title="Start"
+                    pinColor="#34C759"
+                  />
+                )}
+                {endLocation && trip.locations.length > 1 && (
+                  <Marker
+                    coordinate={{
+                      latitude: endLocation.latitude,
+                      longitude: endLocation.longitude,
+                    }}
+                    title="End"
+                    pinColor="#FF3B30"
+                  />
+                )}
+              </MapView>
+            </View>
+
+            <View style={styles.shareStatsContainer}>
+              <View style={styles.shareStatBox}>
+                <Route size={24} color={theme.colors.dark.accent} />
+                <Text style={styles.shareStatBoxLabel}>Distance</Text>
+                <Text style={styles.shareStatBoxValue}>{trip.distance.toFixed(1)} km</Text>
               </View>
-              <View style={styles.socialIcon}>
-                <Facebook size={16} color={theme.colors.dark.accent} />
+              <View style={styles.shareStatBox}>
+                <Clock size={24} color={theme.colors.dark.accent} />
+                <Text style={styles.shareStatBoxLabel}>Duration</Text>
+                <Text style={styles.shareStatBoxValue}>{formatDuration(trip.duration)}</Text>
               </View>
-              <View style={styles.socialIcon}>
-                <Twitter size={16} color={theme.colors.dark.accent} />
+              <View style={styles.shareStatBox}>
+                <Gauge size={24} color={theme.colors.dark.accent} />
+                <Text style={styles.shareStatBoxLabel}>Avg Speed</Text>
+                <Text style={styles.shareStatBoxValue}>{Math.round(useKmh ? trip.avgSpeed : trip.avgSpeed * 0.621371)} {useKmh ? 'km/h' : 'mph'}</Text>
               </View>
             </View>
           </View>
-          
+        </View>
+
         <View style={styles.mapContainer}>
           <MapView
             style={styles.map}
@@ -382,43 +437,7 @@ export default function TripSummaryScreen() {
             </View>
           </View>
 
-          <View style={styles.shareStatsCard}>
-            <View style={styles.shareStatsHeader}>
-              <Text style={styles.shareStatsTitle}>Journey Summary</Text>
-              <Text style={styles.shareStatsDate}>{formatDate(trip.startTime)}</Text>
-            </View>
-            <View style={styles.shareStatsRow}>
-              <View style={styles.shareStatItem}>
-                <View style={styles.shareStatIconContainer}>
-                  <Route size={18} color={theme.colors.dark.accent} />
-                </View>
-                <Text style={styles.shareStatValue}>{trip.distance.toFixed(1)} km</Text>
-                <Text style={styles.shareStatLabel}>Distance</Text>
-              </View>
-              <View style={styles.shareStatDivider} />
-              <View style={styles.shareStatItem}>
-                <View style={styles.shareStatIconContainer}>
-                  <Clock size={18} color={theme.colors.dark.accent} />
-                </View>
-                <Text style={styles.shareStatValue}>{formatDuration(trip.duration)}</Text>
-                <Text style={styles.shareStatLabel}>Duration</Text>
-              </View>
-              <View style={styles.shareStatDivider} />
-              <View style={styles.shareStatItem}>
-                <View style={styles.shareStatIconContainer}>
-                  <Gauge size={18} color={theme.colors.dark.accent} />
-                </View>
-                <Text style={styles.shareStatValue}>{Math.round(useKmh ? trip.avgSpeed : trip.avgSpeed * 0.621371)}</Text>
-                <Text style={styles.shareStatLabel}>Avg Speed ({useKmh ? 'km/h' : 'mph'})</Text>
-              </View>
-            </View>
-            <View style={styles.shareFooter}>
-              <View style={styles.shareFooterReward}>
-                <Award size={20} color={theme.colors.dark.accent} />
-                <Text style={styles.shareFooterText}>+{gpsPoints} GP Earned</Text>
-              </View>
-            </View>
-          </View>
+
 
           <View style={styles.chartSection}>
             <Text style={styles.chartTitle}>Speed Over Time</Text>
@@ -455,7 +474,6 @@ export default function TripSummaryScreen() {
             </View>
           </View>
         </View>
-      </View>
       </ScrollView>
     </View>
   );
@@ -709,129 +727,84 @@ const styles = StyleSheet.create({
     marginRight: theme.spacing.xs,
   },
   shareContainer: {
-    backgroundColor: theme.colors.dark.background,
+    backgroundColor: '#0A1628',
+    width: 820,
+    alignSelf: 'center',
   },
   shareHeader: {
-    backgroundColor: theme.colors.dark.card,
-    padding: theme.spacing.lg,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    backgroundColor: '#0F1F3D',
+    paddingVertical: theme.spacing.xl * 2,
+    paddingHorizontal: theme.spacing.xl * 2,
     alignItems: 'center',
-    borderBottomWidth: 3,
-    borderBottomColor: theme.colors.dark.accent,
   },
   shareBrandingTop: {
-    flex: 1,
+    alignItems: 'center',
   },
   shareBrandingText: {
-    ...theme.typography.largeTitle,
-    color: theme.colors.dark.accent,
-    fontWeight: '800' as const,
-    letterSpacing: 1.5,
-    fontSize: 32,
+    fontSize: 64,
+    color: '#3B82F6',
+    fontWeight: '900' as const,
+    letterSpacing: 2,
   },
   shareBrandingSubtext: {
-    ...theme.typography.subheadline,
-    color: theme.colors.dark.textSecondary,
-    marginTop: 4,
-    letterSpacing: 3,
-    textTransform: 'uppercase' as const,
+    fontSize: 16,
+    color: '#94A3B8',
+    marginTop: 8,
+    letterSpacing: 4,
+    fontWeight: '600' as const,
   },
-  socialIconsContainer: {
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-    alignItems: 'center',
+  shareContent: {
+    paddingHorizontal: theme.spacing.xl * 2,
+    paddingVertical: theme.spacing.xl * 2,
   },
-  socialIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: theme.colors.dark.cardElevated,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.dark.accent,
-  },
-  shareStatsCard: {
-    backgroundColor: theme.colors.dark.card,
-    marginHorizontal: theme.spacing.lg,
-    marginTop: theme.spacing.md,
-    marginBottom: theme.spacing.lg,
-    borderRadius: theme.borderRadius.xl,
-    padding: theme.spacing.xl,
-    borderWidth: 2,
-    borderColor: theme.colors.dark.accent,
-  },
-  shareStatsHeader: {
-    marginBottom: theme.spacing.lg,
-    paddingBottom: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.dark.border,
-  },
-  shareStatsTitle: {
-    ...theme.typography.title2,
-    color: theme.colors.dark.text,
-    fontWeight: '700' as const,
-    marginBottom: theme.spacing.xs,
-  },
-  shareStatsDate: {
-    ...theme.typography.caption1,
-    color: theme.colors.dark.textSecondary,
-  },
-  shareStatsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  shareStatItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  shareStatIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: theme.colors.dark.cardElevated,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: theme.spacing.sm,
-  },
-  shareStatValue: {
-    ...theme.typography.title2,
-    color: theme.colors.dark.text,
-    fontWeight: '800' as const,
-    marginTop: theme.spacing.xs,
-  },
-  shareStatLabel: {
-    ...theme.typography.caption1,
-    color: theme.colors.dark.textSecondary,
-    marginTop: theme.spacing.xs,
+  shareMainText: {
+    fontSize: 28,
+    color: '#E2E8F0',
     textAlign: 'center',
+    marginBottom: theme.spacing.xl * 1.5,
+    fontWeight: '400' as const,
   },
-  shareStatDivider: {
-    width: 1,
-    height: 60,
-    backgroundColor: theme.colors.dark.border,
-  },
-  shareFooter: {
-    marginTop: theme.spacing.lg,
-    paddingTop: theme.spacing.lg,
-    borderTopWidth: 2,
-    borderTopColor: theme.colors.dark.accent,
-    alignItems: 'center',
-  },
-  shareFooterReward: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    backgroundColor: theme.colors.dark.cardElevated,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.borderRadius.full,
-  },
-  shareFooterText: {
-    ...theme.typography.headline,
-    color: theme.colors.dark.accent,
+  shareMainTextBold: {
     fontWeight: '700' as const,
+    color: '#3B82F6',
+  },
+  shareMapContainer: {
+    height: 450,
+    borderRadius: theme.borderRadius.xl,
+    overflow: 'hidden',
+    borderWidth: 3,
+    borderColor: '#3B82F6',
+    marginBottom: theme.spacing.xl * 2,
+  },
+  shareMap: {
+    width: '100%',
+    height: '100%',
+  },
+  shareStatsContainer: {
+    flexDirection: 'row',
+    gap: theme.spacing.lg,
+  },
+  shareStatBox: {
+    flex: 1,
+    backgroundColor: '#1E293B',
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.xl * 1.5,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#334155',
+  },
+  shareStatBoxLabel: {
+    fontSize: 14,
+    color: '#94A3B8',
+    marginTop: theme.spacing.sm,
+    fontWeight: '600' as const,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 1,
+  },
+  shareStatBoxValue: {
+    fontSize: 24,
+    color: '#F1F5F9',
+    marginTop: theme.spacing.xs,
+    fontWeight: '800' as const,
   },
 });
