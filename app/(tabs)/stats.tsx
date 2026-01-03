@@ -10,7 +10,7 @@ export default function StatsScreen() {
   const { stats, trips, useKmh } = useTrip();
   const router = useRouter();
 
-  const highSpeedThreshold = 100;
+  const highSpeedThreshold = useKmh ? 100 : 62;
 
   const totalDrivenTime = useMemo(() => {
     return stats.totalDuration;
@@ -18,18 +18,28 @@ export default function StatsScreen() {
 
   const highSpeedTime = useMemo(() => {
     let totalHighSpeedTime = 0;
+    
     trips.forEach(trip => {
-      let tripHighSpeedTime = 0;
-      trip.locations.forEach((loc, index) => {
-        if (index > 0 && (loc.speed || 0) >= highSpeedThreshold) {
-          const timeDiff = loc.timestamp - trip.locations[index - 1].timestamp;
-          tripHighSpeedTime += timeDiff;
+      if (!trip.locations || trip.locations.length < 2) {
+        return;
+      }
+      
+      for (let i = 1; i < trip.locations.length; i++) {
+        const currentLoc = trip.locations[i];
+        const prevLoc = trip.locations[i - 1];
+        
+        const speed = currentLoc.speed || 0;
+        const displaySpeed = useKmh ? speed : speed * 0.621371;
+        
+        if (displaySpeed >= highSpeedThreshold) {
+          const timeDiff = currentLoc.timestamp - prevLoc.timestamp;
+          totalHighSpeedTime += timeDiff;
         }
-      });
-      totalHighSpeedTime += tripHighSpeedTime;
+      }
     });
+    
     return totalHighSpeedTime;
-  }, [trips, highSpeedThreshold]);
+  }, [trips, highSpeedThreshold, useKmh]);
 
   const monthlyDistance = useMemo(() => {
     const now = new Date();

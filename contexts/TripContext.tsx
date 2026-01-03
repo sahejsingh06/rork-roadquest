@@ -188,7 +188,8 @@ export const [TripProvider, useTrip] = createContextHook(() => {
         {
           accuracy: Location.Accuracy.BestForNavigation,
           timeInterval: 1000,
-          distanceInterval: 5,
+          distanceInterval: 3,
+          mayShowUserSettingsDialog: true,
         },
         (location) => {
           if (isStoppingRef.current) return;
