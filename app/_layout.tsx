@@ -73,6 +73,12 @@ function RootLayoutNav() {
             presentation: 'modal',
           }} 
         />
+        <Stack.Screen 
+          name="add-friend/[userId]" 
+          options={{ 
+            headerShown: false,
+          }} 
+        />
       </Stack>
     </>
   );

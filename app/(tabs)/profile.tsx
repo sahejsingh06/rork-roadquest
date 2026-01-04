@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, ScrollView, Pressable, TextInput, Modal, Keyboa
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
-import { Camera, X, Plus, Edit3, MapPin, Car as CarIcon, Trash2, Settings, Users, UserPlus, Check, Search, Copy } from 'lucide-react-native';
+import { Camera, X, Plus, Edit3, MapPin, Car as CarIcon, Trash2, Settings, Users, UserPlus, Check, Search, Copy, Link } from 'lucide-react-native';
 import { useTrip } from '@/contexts/TripContext';
 import { useUser } from '@/contexts/UserContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -154,6 +154,13 @@ export default function ProfileScreen() {
     if (!userProfile?.username) return;
     await Clipboard.setStringAsync(userProfile.username);
     Alert.alert('Copied!', 'Username copied to clipboard');
+  };
+
+  const handleShareProfileLink = async () => {
+    if (!userProfile?.id) return;
+    const link = `roadquest://add-friend/${userProfile.id}`;
+    await Clipboard.setStringAsync(link);
+    Alert.alert('Link Copied!', 'Share this link with friends to let them add you easily. They can paste it in their browser or tap it directly.');
   };
 
   if (!userProfile) {
@@ -526,6 +533,11 @@ export default function ProfileScreen() {
             <Text style={styles.usernameHint}>Share this with friends to connect</Text>
           </View>
           
+          <Pressable style={styles.shareLinkButton} onPress={handleShareProfileLink}>
+            <Link size={18} color={theme.colors.dark.accent} />
+            <Text style={styles.shareLinkText}>Share Profile Link</Text>
+          </Pressable>
+          
           <Pressable 
             style={styles.regionButton}
             onPress={() => setIsRegionModalVisible(true)}
@@ -757,6 +769,23 @@ const styles = StyleSheet.create({
   },
   editButton: {
     padding: theme.spacing.xs,
+  },
+  shareLinkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.dark.card,
+    borderRadius: theme.borderRadius.lg,
+    paddingVertical: theme.spacing.md,
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.dark.border,
+  },
+  shareLinkText: {
+    ...theme.typography.callout,
+    color: theme.colors.dark.accent,
+    fontWeight: '600' as const,
   },
   regionButton: {
     flexDirection: 'row',
