@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Trip, LocationPoint, TripStats } from '@/types/trip';
+import { useUser } from '@/contexts/UserContext';
 
 const TRIPS_STORAGE_KEY = '@roadquest_trips';
 const STATS_STORAGE_KEY = '@roadquest_stats';
@@ -12,6 +13,7 @@ const PAUSE_THRESHOLD_TIME = 10 * 60 * 1000;
 const WARNING_TIME = 10 * 60 * 1000;
 
 export const [TripProvider, useTrip] = createContextHook(() => {
+  const { syncToBackend } = useUser();
   const [isTracking, setIsTracking] = useState(false);
   const [currentTrip, setCurrentTrip] = useState<Trip | null>(null);
   const [currentSpeed, setCurrentSpeed] = useState(0);
@@ -385,6 +387,13 @@ export const [TripProvider, useTrip] = createContextHook(() => {
     setStats(updatedStats);
     saveStats(updatedStats);
 
+    syncToBackend({
+      totalDistance: updatedStats.totalDistance,
+      totalTrips: updatedStats.totalTrips,
+      totalGPSPoints: Math.floor(updatedStats.totalDistance),
+      roadCoveragePercent: 0.8,
+    });
+
     console.log('Trip ended and saved:', endedTrip.id, 'distance:', endedTrip.distance);
 
     setCurrentTrip(null);
@@ -395,7 +404,7 @@ export const [TripProvider, useTrip] = createContextHook(() => {
     setTimeout(() => {
       isStoppingRef.current = false;
     }, 500);
-  }, [currentTrip, isTracking]);
+  }, [currentTrip, isTracking, syncToBackend]);
 
   const deleteTrip = useCallback((tripId: string) => {
     setTrips((prev) => {

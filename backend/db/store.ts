@@ -81,7 +81,7 @@ class RorkDB {
         ...u,
         id: this.extractId(u.id as any),
       }));
-      console.log('getAllUsers returned', users.length, 'users');
+      console.log('getAllUsers returned', users.length, 'users:', users.map(u => ({ id: u.id, username: u.username })));
       return users;
     } catch (error) {
       console.error('Error getting all users:', error);
@@ -183,8 +183,9 @@ class RorkDB {
         'SELECT * FROM leaderboard WHERE type = $type AND period = $period ORDER BY value DESC LIMIT 100',
         { type, period }
       );
-      console.log('getLeaderboardEntries:', type, period, 'returned', result[0]?.length || 0, 'entries');
-      return result[0] || [];
+      const entries = result[0] || [];
+      console.log('getLeaderboardEntries:', type, period, 'returned', entries.length, 'entries:', entries.map(e => ({ userId: e.userId, username: e.username, value: e.value })));
+      return entries;
     } catch (error) {
       console.error('Error getting leaderboard entries:', error);
       return [];

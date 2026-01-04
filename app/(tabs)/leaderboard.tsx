@@ -52,21 +52,12 @@ export default function LeaderboardScreen() {
     };
   }, [trips]);
 
-  const syncMutation = trpc.user.sync.useMutation();
+  const { syncToBackend } = useUser();
 
   useEffect(() => {
     if (authUser && userProfile) {
-      console.log('Syncing user to leaderboard:', {
-        userId: authUser.id,
-        username: userProfile.username,
-        photoUrl: userProfile.photoUrl,
-        stats: localStats,
-      });
-      syncMutation.mutate({
-        username: userProfile.username,
-        email: authUser.email,
-        photoUrl: userProfile.photoUrl,
-        region: userProfile.region,
+      console.log('Syncing stats to backend:', localStats);
+      syncToBackend({
         totalDistance: localStats.totalDistance,
         totalTrips: localStats.totalTrips,
         totalGPSPoints: localStats.totalGPSPoints,
@@ -74,7 +65,7 @@ export default function LeaderboardScreen() {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authUser?.id, userProfile?.username, userProfile?.photoUrl, localStats.totalDistance, localStats.totalTrips, localStats.totalGPSPoints]);
+  }, [authUser?.id, localStats.totalDistance, localStats.totalTrips, localStats.totalGPSPoints]);
 
   const leaderboardQuery = trpc.leaderboard.get.useQuery(
     {

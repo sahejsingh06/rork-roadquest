@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { UserProfile, Car } from '@/types/user';
 import { useAuth } from '@/contexts/AuthContext';
+import { trpc } from '@/lib/trpc';
 
 const USER_PROFILE_KEY = '@roadquest_user_profile';
 const ONBOARDING_KEY = '@roadquest_onboarding_seen';
@@ -12,6 +13,7 @@ export const [UserProvider, useUser] = createContextHook(() => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false);
+  const syncMutation = trpc.user.sync.useMutation();
 
   const getUserProfileKey = useCallback((authUserId: string) => {
     return `${USER_PROFILE_KEY}_${authUserId}`;
@@ -159,6 +161,33 @@ export const [UserProvider, useUser] = createContextHook(() => {
     return Math.ceil(timeLeft / (24 * 60 * 60 * 1000));
   }, [userProfile]);
 
+  const syncToBackend = useCallback(async (statsData?: { totalDistance: number; totalTrips: number; totalGPSPoints: number; roadCoveragePercent: number }) => {
+    if (!authUser || !userProfile) return;
+    
+    console.log('Syncing user to backend:', userProfile.username);
+    try {
+      await syncMutation.mutateAsync({
+        username: userProfile.username,
+        email: authUser.email,
+        photoUrl: userProfile.photoUrl,
+        region: userProfile.region,
+        totalDistance: statsData?.totalDistance || 0,
+        totalTrips: statsData?.totalTrips || 0,
+        totalGPSPoints: statsData?.totalGPSPoints || 0,
+        roadCoveragePercent: statsData?.roadCoveragePercent || 0,
+      });
+      console.log('User synced successfully');
+    } catch (error) {
+      console.error('Failed to sync user:', error);
+    }
+  }, [authUser, userProfile, syncMutation]);
+
+  useEffect(() => {
+    if (authUser && userProfile && userProfile.username) {
+      syncToBackend();
+    }
+  }, [authUser, userProfile, syncToBackend]);
+
   return {
     userProfile,
     isLoading,
@@ -171,5 +200,6 @@ export const [UserProvider, useUser] = createContextHook(() => {
     markOnboardingAsSeen,
     canChangeUsername,
     daysUntilUsernameChange,
+    syncToBackend,
   };
 });
