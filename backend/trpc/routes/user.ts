@@ -16,8 +16,8 @@ export const userRouter = createTRPCRouter({
         roadCoveragePercent: z.number(),
       })
     )
-    .mutation(({ ctx, input }) => {
-      const existingUser = db.getUser(ctx.userId);
+    .mutation(async ({ ctx, input }) => {
+      const existingUser = await db.getUser(ctx.userId);
       
       const user = {
         id: ctx.userId,
@@ -33,69 +33,71 @@ export const userRouter = createTRPCRouter({
         lastUpdated: Date.now(),
       };
 
-      db.setUser(user);
+      await db.setUser(user);
 
       const periods = ['weekly', 'monthly', 'season', 'allTime'] as const;
-      periods.forEach(period => {
-        db.setLeaderboardEntry({
-          userId: ctx.userId,
-          username: input.username,
-          photoUrl: input.photoUrl,
-          region: input.region,
-          value: input.totalDistance,
-          type: 'distance',
-          period,
-        });
-        
-        db.setLeaderboardEntry({
-          userId: ctx.userId,
-          username: input.username,
-          photoUrl: input.photoUrl,
-          region: input.region,
-          value: input.totalGPSPoints,
-          type: 'gpsPoints',
-          period,
-        });
-        
-        db.setLeaderboardEntry({
-          userId: ctx.userId,
-          username: input.username,
-          photoUrl: input.photoUrl,
-          region: input.region,
-          value: input.totalTrips,
-          type: 'trips',
-          period,
-        });
-        
-        db.setLeaderboardEntry({
-          userId: ctx.userId,
-          username: input.username,
-          photoUrl: input.photoUrl,
-          region: input.region,
-          value: input.roadCoveragePercent,
-          type: 'coverage',
-          period,
-        });
-      });
+      await Promise.all(
+        periods.map(async (period) => {
+          await db.setLeaderboardEntry({
+            userId: ctx.userId,
+            username: input.username,
+            photoUrl: input.photoUrl,
+            region: input.region,
+            value: input.totalDistance,
+            type: 'distance',
+            period,
+          });
+          
+          await db.setLeaderboardEntry({
+            userId: ctx.userId,
+            username: input.username,
+            photoUrl: input.photoUrl,
+            region: input.region,
+            value: input.totalGPSPoints,
+            type: 'gpsPoints',
+            period,
+          });
+          
+          await db.setLeaderboardEntry({
+            userId: ctx.userId,
+            username: input.username,
+            photoUrl: input.photoUrl,
+            region: input.region,
+            value: input.totalTrips,
+            type: 'trips',
+            period,
+          });
+          
+          await db.setLeaderboardEntry({
+            userId: ctx.userId,
+            username: input.username,
+            photoUrl: input.photoUrl,
+            region: input.region,
+            value: input.roadCoveragePercent,
+            type: 'coverage',
+            period,
+          });
+        })
+      );
 
       return { success: true, user };
     }),
 
   get: protectedProcedure
     .input(z.object({ userId: z.string().optional() }))
-    .query(({ ctx, input }) => {
+    .query(async ({ ctx, input }) => {
       const userId = input.userId || ctx.userId;
-      const user = db.getUser(userId);
+      const user = await db.getUser(userId);
       return user || null;
     }),
 
   search: protectedProcedure
     .input(z.object({ query: z.string() }))
-    .query(({ input }) => {
+    .query(async ({ input }) => {
       const query = input.query.toLowerCase();
-      const users = db.getAllUsers();
+      const users = await db.getAllUsers();
       return users.filter(
-        u => u.username.toLowerCase().includes(query) || u.email.toLowerCase().includes(query)
+        (u) => u.username.toLowerCase().includes(query) || u.email.toLowerCase().includes(query)
       ).slice(0, 20);
     }),
 });

@@ -6,7 +6,7 @@ import { TRPCError } from "@trpc/server";
 export const friendsRouter = createTRPCRouter({
   sendRequest: protectedProcedure
     .input(z.object({ friendId: z.string() }))
-    .mutation(({ ctx, input }) => {
+    .mutation(async ({ ctx, input }) => {
       if (ctx.userId === input.friendId) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -14,9 +14,9 @@ export const friendsRouter = createTRPCRouter({
         });
       }
 
-      const existingFriendships = db.getUserFriendships(ctx.userId);
+      const existingFriendships = await db.getUserFriendships(ctx.userId);
       const alreadyExists = existingFriendships.find(
-        f => (f.userId === ctx.userId && f.friendId === input.friendId) ||
+        (f) => (f.userId === ctx.userId && f.friendId === input.friendId) ||
              (f.userId === input.friendId && f.friendId === ctx.userId)
       );
 
@@ -35,14 +35,14 @@ export const friendsRouter = createTRPCRouter({
         createdAt: Date.now(),
       };
 
-      db.setFriendship(friendship);
+      await db.setFriendship(friendship);
       return { success: true, friendship };
     }),
 
   acceptRequest: protectedProcedure
     .input(z.object({ friendshipId: z.string() }))
-    .mutation(({ ctx, input }) => {
-      const friendship = db.getFriendship(input.friendshipId);
+    .mutation(async ({ ctx, input }) => {
+      const friendship = await db.getFriendship(input.friendshipId);
       
       if (!friendship) {
         throw new TRPCError({
@@ -58,14 +58,14 @@ export const friendsRouter = createTRPCRouter({
         });
       }
 
-      db.setFriendship({ ...friendship, status: 'accepted' });
+      await db.setFriendship({ ...friendship, status: 'accepted' });
       return { success: true };
     }),
 
   rejectRequest: protectedProcedure
     .input(z.object({ friendshipId: z.string() }))
-    .mutation(({ ctx, input }) => {
-      const friendship = db.getFriendship(input.friendshipId);
+    .mutation(async ({ ctx, input }) => {
+      const friendship = await db.getFriendship(input.friendshipId);
       
       if (!friendship) {
         throw new TRPCError({
@@ -81,14 +81,14 @@ export const friendsRouter = createTRPCRouter({
         });
       }
 
-      db.removeFriendship(input.friendshipId);
+      await db.removeFriendship(input.friendshipId);
       return { success: true };
     }),
 
   removeFriend: protectedProcedure
     .input(z.object({ friendshipId: z.string() }))
-    .mutation(({ ctx, input }) => {
-      const friendship = db.getFriendship(input.friendshipId);
+    .mutation(async ({ ctx, input }) => {
+      const friendship = await db.getFriendship(input.friendshipId);
       
       if (!friendship) {
         throw new TRPCError({
@@ -104,38 +104,28 @@ export const friendsRouter = createTRPCRouter({
         });
       }
 
-      db.removeFriendship(input.friendshipId);
+      await db.removeFriendship(input.friendshipId);
       return { success: true };
     }),
 
-  list: protectedProcedure.query(({ ctx }) => {
-    const friendships = db.getUserFriendships(ctx.userId);
+  list: protectedProcedure.query(async ({ ctx }) => {
+    const friendships = await db.getUserFriendships(ctx.userId);
     
     const friendIds = friendships
-      .filter(f => f.status === 'accepted')
-      .map(f => f.userId === ctx.userId ? f.friendId : f.userId);
+      .filter((f) => f.status === 'accepted')
+      .map((f) => f.userId === ctx.userId ? f.friendId : f.userId);
 
-    const friends = db.getUsersByIds(friendIds);
+    const friends = await db.getUsersByIds(friendIds);
 
-    const pending = friendships.filter(f => f.status === 'pending');
-    const sentRequests = pending.filter(f => f.userId === ctx.userId);
-    const receivedRequests = pending.filter(f => f.friendId === ctx.userId);
+    const pending = friendships.filter((f) => f.status === 'pending');
+    const sentRequests = pending.filter((f) => f.userId === ctx.userId);
+    const receivedRequests = pending.filter((f) => f.friendId === ctx.userId);
 
-    const receivedRequestUsers = db.getUsersByIds(receivedRequests.map(r => r.userId));
+    const receivedRequestUsers = await db.getUsersByIds(receivedRequests.map((r) => r.userId));
 
-    return {
-      friends: friends.map(f => ({
-        userId: f.id,
-        username: f.username,
-        photoUrl: f.photoUrl,
-        region: f.region,
-        friendshipId: friendships.find(
-          fs => (fs.userId === ctx.userId && fs.friendId === f.id) ||
-                (fs.userId === f.id && fs.friendId === ctx.userId)
-        )?.id || '',
-      })),
-      sentRequests: sentRequests.map(r => {
-        const friend = db.getUser(r.friendId);
+    const sentRequestsWithUsers = await Promise.all(
+      sentRequests.map(async (r) => {
+        const friend = await db.getUser(r.friendId);
         return {
           friendshipId: r.id,
           userId: r.friendId,
@@ -143,7 +133,21 @@ export const friendsRouter = createTRPCRouter({
           photoUrl: friend?.photoUrl,
           createdAt: r.createdAt,
         };
-      }),
+      })
+    );
+
+    return {
+      friends: friends.map((f) => ({
+        userId: f.id,
+        username: f.username,
+        photoUrl: f.photoUrl,
+        region: f.region,
+        friendshipId: friendships.find(
+          (fs) => (fs.userId === ctx.userId && fs.friendId === f.id) ||
+                (fs.userId === f.id && fs.friendId === ctx.userId)
+        )?.id || '',
+      })),
+      sentRequests: sentRequestsWithUsers,
       receivedRequests: receivedRequests.map((r, idx) => ({
         friendshipId: r.id,
         userId: r.userId,

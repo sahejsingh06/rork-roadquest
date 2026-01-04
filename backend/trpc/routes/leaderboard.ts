@@ -11,18 +11,18 @@ export const leaderboardRouter = createTRPCRouter({
         scope: z.enum(['global', 'friends']).default('global'),
       })
     )
-    .query(({ ctx, input }) => {
-      let entries = db.getLeaderboardEntries(input.type, input.period);
+    .query(async ({ ctx, input }) => {
+      let entries = await db.getLeaderboardEntries(input.type, input.period);
 
       if (input.scope === 'friends') {
-        const friendships = db.getUserFriendships(ctx.userId);
+        const friendships = await db.getUserFriendships(ctx.userId);
         const friendIds = friendships
-          .filter(f => f.status === 'accepted')
-          .map(f => f.userId === ctx.userId ? f.friendId : f.userId);
+          .filter((f) => f.status === 'accepted')
+          .map((f) => f.userId === ctx.userId ? f.friendId : f.userId);
         
         friendIds.push(ctx.userId);
         
-        entries = entries.filter(e => friendIds.includes(e.userId));
+        entries = entries.filter((e) => friendIds.includes(e.userId));
       }
 
       const rankedEntries = entries.map((entry, index) => ({
@@ -35,7 +35,7 @@ export const leaderboardRouter = createTRPCRouter({
         change: 0,
       }));
 
-      const currentUserEntry = rankedEntries.find(e => e.userId === ctx.userId);
+      const currentUserEntry = rankedEntries.find((e) => e.userId === ctx.userId);
 
       return {
         entries: rankedEntries.slice(0, 100),

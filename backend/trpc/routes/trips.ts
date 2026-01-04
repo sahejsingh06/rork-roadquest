@@ -27,8 +27,8 @@ export const tripsRouter = createTRPCRouter({
         }),
       })
     )
-    .mutation(({ ctx, input }) => {
-      const user = db.getUser(ctx.userId);
+    .mutation(async ({ ctx, input }) => {
+      const user = await db.getUser(ctx.userId);
       
       const dbTrip = {
         id: input.tripId,
@@ -48,52 +48,56 @@ export const tripsRouter = createTRPCRouter({
         pausedDuration: 0,
       };
 
-      db.setTrip(dbTrip);
+      await db.setTrip(dbTrip);
       return { success: true };
     }),
 
-  getFriendsTrips: protectedProcedure.query(({ ctx }) => {
-    const friendships = db.getUserFriendships(ctx.userId);
+  getFriendsTrips: protectedProcedure.query(async ({ ctx }) => {
+    const friendships = await db.getUserFriendships(ctx.userId);
     const friendIds = friendships
-      .filter(f => f.status === 'accepted')
-      .map(f => f.userId === ctx.userId ? f.friendId : f.userId);
+      .filter((f) => f.status === 'accepted')
+      .map((f) => f.userId === ctx.userId ? f.friendId : f.userId);
 
-    const trips = db.getFriendsSharedTrips(friendIds);
+    const trips = await db.getFriendsSharedTrips(friendIds);
     return trips;
   }),
 
-  getFriendsProgress: protectedProcedure.query(({ ctx }) => {
-    const friendships = db.getUserFriendships(ctx.userId);
+  getFriendsProgress: protectedProcedure.query(async ({ ctx }) => {
+    const friendships = await db.getUserFriendships(ctx.userId);
     const friendIds = friendships
-      .filter(f => f.status === 'accepted')
-      .map(f => f.userId === ctx.userId ? f.friendId : f.userId);
+      .filter((f) => f.status === 'accepted')
+      .map((f) => f.userId === ctx.userId ? f.friendId : f.userId);
 
-    const friends = db.getUsersByIds(friendIds);
+    const friends = await db.getUsersByIds(friendIds);
     
-    return friends.map(friend => {
-      const trips = db.getUserTrips(friend.id);
-      const now = new Date();
-      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-      const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay()).getTime();
-      
-      const todayTrips = trips.filter(t => t.startTime >= startOfDay);
-      const weekTrips = trips.filter(t => t.startTime >= startOfWeek);
-      
-      const todayDistance = todayTrips.reduce((sum, t) => sum + t.distance, 0);
-      const weekDistance = weekTrips.reduce((sum, t) => sum + t.distance, 0);
-      
-      return {
-        userId: friend.id,
-        username: friend.username,
-        photoUrl: friend.photoUrl,
-        totalDistance: friend.totalDistance,
-        totalTrips: friend.totalTrips,
-        totalGPSPoints: friend.totalGPSPoints,
-        todayDistance,
-        weekDistance,
-        todayTrips: todayTrips.length,
-        weekTrips: weekTrips.length,
-      };
-    });
+    const friendsProgress = await Promise.all(
+      friends.map(async (friend) => {
+        const trips = await db.getUserTrips(friend.id);
+        const now = new Date();
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay()).getTime();
+        
+        const todayTrips = trips.filter((t) => t.startTime >= startOfDay);
+        const weekTrips = trips.filter((t) => t.startTime >= startOfWeek);
+        
+        const todayDistance = todayTrips.reduce((sum: number, t) => sum + t.distance, 0);
+        const weekDistance = weekTrips.reduce((sum: number, t) => sum + t.distance, 0);
+        
+        return {
+          userId: friend.id,
+          username: friend.username,
+          photoUrl: friend.photoUrl,
+          totalDistance: friend.totalDistance,
+          totalTrips: friend.totalTrips,
+          totalGPSPoints: friend.totalGPSPoints,
+          todayDistance,
+          weekDistance,
+          todayTrips: todayTrips.length,
+          weekTrips: weekTrips.length,
+        };
+      })
+    );
+    
+    return friendsProgress;
   }),
 });
