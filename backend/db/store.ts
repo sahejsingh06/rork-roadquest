@@ -23,20 +23,28 @@ class RorkDB {
   private async init() {
     if (this.initialized) return;
     try {
-      await this.client.connect(endpoint);
-      await this.client.use({ namespace, database: 'app' });
-      await this.client.authenticate(token);
+      await Promise.race([
+        (async () => {
+          await this.client.connect(endpoint);
+          await this.client.use({ namespace, database: 'app' });
+          await this.client.authenticate(token);
+        })(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Database connection timeout')), 10000)
+        )
+      ]);
       this.initialized = true;
       console.log('RorkDB connected successfully');
     } catch (error) {
       console.error('Failed to connect to RorkDB:', error);
+      this.initialized = false;
       throw error;
     }
   }
 
   async getUser(userId: string): Promise<DBUser | undefined> {
-    await this.init();
     try {
+      await this.init();
       const result = await this.client.query<[DBUser[]]>(
         'SELECT * FROM user WHERE id = type::thing("user", $userId) LIMIT 1',
         { userId }
@@ -57,8 +65,8 @@ class RorkDB {
   }
 
   async setUser(user: DBUser): Promise<void> {
-    await this.init();
     try {
+      await this.init();
       const userWithId = {
         ...user,
         id: `user:${user.id}`,
@@ -70,12 +78,13 @@ class RorkDB {
       console.log('User saved:', user.id, user.username);
     } catch (error) {
       console.error('Error setting user:', error, user);
+      throw error;
     }
   }
 
   async getAllUsers(): Promise<DBUser[]> {
-    await this.init();
     try {
+      await this.init();
       const result = await this.client.query<[DBUser[]]>('SELECT * FROM user ORDER BY username ASC');
       const users = (result[0] || []).map(u => ({
         ...u,
@@ -91,8 +100,8 @@ class RorkDB {
 
   async getUsersByIds(userIds: string[]): Promise<DBUser[]> {
     if (userIds.length === 0) return [];
-    await this.init();
     try {
+      await this.init();
       const formattedIds = userIds.map(id => id.startsWith('user:') ? id : `user:${id}`);
       const result = await this.client.query<[DBUser[]]>(
         'SELECT * FROM user WHERE id IN $userIds',
@@ -111,8 +120,8 @@ class RorkDB {
   }
 
   async getFriendship(friendshipId: string): Promise<DBFriendship | undefined> {
-    await this.init();
     try {
+      await this.init();
       const result = await this.client.query<[DBFriendship[]]>(
         'SELECT * FROM type::thing("friendship", $id) LIMIT 1',
         { id: friendshipId }
@@ -125,20 +134,21 @@ class RorkDB {
   }
 
   async setFriendship(friendship: DBFriendship): Promise<void> {
-    await this.init();
     try {
+      await this.init();
       await this.client.query(
         'UPDATE type::thing("friendship", $id) CONTENT $friendship',
         { id: friendship.id, friendship }
       );
     } catch (error) {
       console.error('Error setting friendship:', error);
+      throw error;
     }
   }
 
   async getUserFriendships(userId: string): Promise<DBFriendship[]> {
-    await this.init();
     try {
+      await this.init();
       const result = await this.client.query<[DBFriendship[]]>(
         'SELECT * FROM friendship WHERE userId = $userId OR friendId = $userId',
         { userId }
@@ -152,20 +162,21 @@ class RorkDB {
   }
 
   async removeFriendship(friendshipId: string): Promise<void> {
-    await this.init();
     try {
+      await this.init();
       await this.client.query(
         'DELETE type::thing("friendship", $id)',
         { id: friendshipId }
       );
     } catch (error) {
       console.error('Error removing friendship:', error);
+      throw error;
     }
   }
 
   async setLeaderboardEntry(entry: DBLeaderboardEntry): Promise<void> {
-    await this.init();
     try {
+      await this.init();
       const id = `${entry.userId}_${entry.type}_${entry.period}`;
       await this.client.query(
         'UPDATE type::thing("leaderboard", $id) CONTENT $entry',
@@ -173,12 +184,13 @@ class RorkDB {
       );
     } catch (error) {
       console.error('Error setting leaderboard entry:', error);
+      throw error;
     }
   }
 
   async getLeaderboardEntries(type: string, period: string): Promise<DBLeaderboardEntry[]> {
-    await this.init();
     try {
+      await this.init();
       const result = await this.client.query<[DBLeaderboardEntry[]]>(
         'SELECT * FROM leaderboard WHERE type = $type AND period = $period ORDER BY value DESC LIMIT 100',
         { type, period }
@@ -193,20 +205,21 @@ class RorkDB {
   }
 
   async setTrip(trip: DBTrip): Promise<void> {
-    await this.init();
     try {
+      await this.init();
       await this.client.query(
         'CREATE type::thing("trip", $id) CONTENT $trip',
         { id: trip.id, trip }
       );
     } catch (error) {
       console.error('Error setting trip:', error);
+      throw error;
     }
   }
 
   async getTrip(tripId: string): Promise<DBTrip | undefined> {
-    await this.init();
     try {
+      await this.init();
       const result = await this.client.query<[DBTrip[]]>(
         'SELECT * FROM type::thing("trip", $id) LIMIT 1',
         { id: tripId }
@@ -219,22 +232,32 @@ class RorkDB {
   }
 
   async getUserTrips(userId: string): Promise<DBTrip[]> {
-    await this.init();
-    const result = await this.client.query<[DBTrip[]]>(
-      'SELECT * FROM trip WHERE userId = $userId ORDER BY startTime DESC',
-      { userId }
-    );
-    return result[0] || [];
+    try {
+      await this.init();
+      const result = await this.client.query<[DBTrip[]]>(
+        'SELECT * FROM trip WHERE userId = $userId ORDER BY startTime DESC',
+        { userId }
+      );
+      return result[0] || [];
+    } catch (error) {
+      console.error('Error getting user trips:', error);
+      return [];
+    }
   }
 
   async getFriendsSharedTrips(friendIds: string[]): Promise<DBTrip[]> {
     if (friendIds.length === 0) return [];
-    await this.init();
-    const result = await this.client.query<[DBTrip[]]>(
-      'SELECT * FROM trip WHERE userId IN $friendIds AND sharedWithFriends = true ORDER BY startTime DESC',
-      { friendIds }
-    );
-    return result[0] || [];
+    try {
+      await this.init();
+      const result = await this.client.query<[DBTrip[]]>(
+        'SELECT * FROM trip WHERE userId IN $friendIds AND sharedWithFriends = true ORDER BY startTime DESC',
+        { friendIds }
+      );
+      return result[0] || [];
+    } catch (error) {
+      console.error('Error getting friends shared trips:', error);
+      return [];
+    }
   }
 }
 

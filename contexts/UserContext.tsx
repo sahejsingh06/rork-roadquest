@@ -166,7 +166,7 @@ export const [UserProvider, useUser] = createContextHook(() => {
     
     console.log('Syncing user to backend:', userProfile.username);
     try {
-      await syncMutation.mutateAsync({
+      const syncPromise = syncMutation.mutateAsync({
         username: userProfile.username,
         email: authUser.email,
         photoUrl: userProfile.photoUrl,
@@ -176,17 +176,25 @@ export const [UserProvider, useUser] = createContextHook(() => {
         totalGPSPoints: statsData?.totalGPSPoints || 0,
         roadCoveragePercent: statsData?.roadCoveragePercent || 0,
       });
+      
+      await Promise.race([
+        syncPromise,
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Sync timeout')), 8000)
+        )
+      ]);
+      
       console.log('User synced successfully');
-    } catch (error) {
-      console.error('Failed to sync user:', error);
+    } catch (error: any) {
+      console.log('Backend sync failed (app continues locally):', error?.message || 'Unknown error');
     }
   }, [authUser, userProfile, syncMutation]);
 
   useEffect(() => {
-    if (authUser && userProfile && userProfile.username) {
-      syncToBackend();
+    if (authUser && userProfile?.username) {
+      syncToBackend().catch(() => {});
     }
-  }, [authUser, userProfile, syncToBackend]);
+  }, [authUser, userProfile?.username, syncToBackend]);
 
   return {
     userProfile,
