@@ -93,11 +93,22 @@ export const userRouter = createTRPCRouter({
 
   search: protectedProcedure
     .input(z.object({ query: z.string() }))
-    .query(async ({ input }) => {
-      const query = input.query.toLowerCase();
+    .query(async ({ ctx, input }) => {
+      const query = input.query.trim().toLowerCase();
+      if (query.length === 0) return [];
+      
+      console.log('Searching for users with query:', query);
       const users = await db.getAllUsers();
-      return users.filter(
-        (u) => u.username.toLowerCase().includes(query) || u.email.toLowerCase().includes(query)
+      console.log('Total users in database:', users.length);
+      
+      const results = users.filter(
+        (u) => u.id !== ctx.userId && (
+          u.username.toLowerCase().includes(query) || 
+          u.email.toLowerCase().includes(query)
+        )
       ).slice(0, 20);
+      
+      console.log('Search results:', results.length);
+      return results;
     }),
 });
