@@ -6,9 +6,11 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Trophy, TrendingUp, TrendingDown, Minus, Crown } from 'lucide-react-native';
+import { Trophy, TrendingUp, TrendingDown, Minus, Crown, RefreshCw, AlertCircle } from 'lucide-react-native';
 import { theme } from '@/constants/theme';
 import { useUser } from '@/contexts/UserContext';
 import { useTrip } from '@/contexts/TripContext';
@@ -27,9 +29,9 @@ export default function LeaderboardScreen() {
   const { user: authUser } = useAuth();
   
   const [selectedType, setSelectedType] = useState<LeaderboardType>('distance');
-  const [selectedPeriod, setSelectedPeriod] = useState<LeaderboardPeriod>('weekly');
+  const [selectedPeriod, setSelectedPeriod] = useState<LeaderboardPeriod>('allTime');
   const [selectedScope, setSelectedScope] = useState<'global' | 'friends'>('global');
-
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const localStats = useMemo(() => {
     let totalDistance = 0;
@@ -75,11 +77,30 @@ export default function LeaderboardScreen() {
     },
     {
       enabled: !!authUser,
-      refetchInterval: 10000,
+      refetchInterval: 15000,
+      retry: 3,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
+      staleTime: 5000,
     }
   );
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await leaderboardQuery.refetch();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const leaderboardData = useMemo(() => {
+    console.log('Leaderboard query state:', {
+      isLoading: leaderboardQuery.isLoading,
+      isError: leaderboardQuery.isError,
+      error: leaderboardQuery.error?.message,
+      dataLength: leaderboardQuery.data?.entries?.length || 0,
+    });
+
     if (leaderboardQuery.data) {
       return {
         entries: leaderboardQuery.data.entries,
@@ -112,7 +133,8 @@ export default function LeaderboardScreen() {
       entries: [],
       currentUserEntry,
     };
-  }, [leaderboardQuery.data, selectedType, localStats, userProfile]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leaderboardQuery.data, leaderboardQuery.isLoading, leaderboardQuery.isError, selectedType, localStats, userProfile]);
 
   const getValueLabel = (type: LeaderboardType): string => {
     switch (type) {
@@ -255,6 +277,13 @@ export default function LeaderboardScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.colors.dark.accent}
+          />
+        }
       >
         <View style={styles.header}>
           <View style={styles.headerTop}>
@@ -458,29 +487,47 @@ export default function LeaderboardScreen() {
           <Text style={styles.currentPeriodText}>
             {getPeriodLabel(selectedPeriod)} • {selectedScope === 'global' ? 'Global' : 'Friends'} Leaderboard
           </Text>
+          <TouchableOpacity onPress={handleRefresh} style={styles.refreshButton}>
+            <RefreshCw size={16} color={theme.colors.dark.accent} />
+          </TouchableOpacity>
         </View>
 
-        {leaderboardQuery.isLoading && (
+        {leaderboardQuery.isLoading && !isRefreshing && (
           <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={theme.colors.dark.accent} />
             <Text style={styles.loadingText}>Loading leaderboard...</Text>
+          </View>
+        )}
+
+        {leaderboardQuery.isError && (
+          <View style={styles.errorContainer}>
+            <AlertCircle size={32} color={theme.colors.dark.danger} />
+            <Text style={styles.errorTitle}>Failed to load leaderboard</Text>
+            <Text style={styles.errorText}>Pull down to refresh or try again later</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
           </View>
         )}
 
         {leaderboardData.entries.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Top Drivers</Text>
-            {leaderboardData.entries.map(entry => renderLeaderboardEntry(entry))}
+            {leaderboardData.entries.map(entry => {
+              const isCurrentUser = entry.userId === userProfile?.id;
+              return renderLeaderboardEntry(entry, isCurrentUser);
+            })}
           </View>
         )}
 
-        {leaderboardData.currentUserEntry && (
+        {leaderboardData.currentUserEntry && !leaderboardData.entries.find(e => e.userId === userProfile?.id) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Your Stats</Text>
             {renderLeaderboardEntry(leaderboardData.currentUserEntry, true)}
           </View>
         )}
 
-        {leaderboardData.entries.length === 0 && !leaderboardQuery.isLoading && (
+        {leaderboardData.entries.length === 0 && !leaderboardQuery.isLoading && !leaderboardQuery.isError && (
           <View style={styles.infoNotice}>
             <Trophy size={24} color={theme.colors.dark.accent} />
             <Text style={styles.infoNoticeTitle}>
@@ -570,89 +617,17 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
     backgroundColor: theme.colors.dark.card,
     borderRadius: theme.borderRadius.md,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   currentPeriodText: {
     ...theme.typography.callout,
     color: theme.colors.dark.accent,
     fontWeight: '600' as const,
   },
-  podium: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'flex-end',
-    marginTop: theme.spacing.xl,
-    marginHorizontal: theme.spacing.md,
-    gap: theme.spacing.sm,
-  },
-  podiumPlace: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-  },
-  podiumAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginBottom: theme.spacing.sm,
-    position: 'relative',
-  },
-  podiumAvatarImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-  },
-  podiumAvatarPlaceholder: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: theme.colors.dark.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  podiumAvatarText: {
-    ...theme.typography.title2,
-    color: theme.colors.dark.text,
-  },
-  crownBadge: {
-    position: 'absolute',
-    top: -8,
-    right: -8,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: theme.colors.dark.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  podiumUsername: {
-    ...theme.typography.footnote,
-    color: theme.colors.dark.text,
-    fontWeight: '600' as const,
-    marginBottom: 2,
-  },
-  podiumValue: {
-    ...theme.typography.title3,
-    color: theme.colors.dark.text,
-    fontWeight: '700' as const,
-  },
-  podiumUnit: {
-    ...theme.typography.caption1,
-    color: theme.colors.dark.textSecondary,
-    marginBottom: theme.spacing.sm,
-  },
-  podiumBase: {
-    width: '100%',
-    height: 80,
-    borderTopLeftRadius: theme.borderRadius.md,
-    borderTopRightRadius: theme.borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  podiumRank: {
-    ...theme.typography.title2,
-    color: '#FFFFFF',
-    fontWeight: '700' as const,
+  refreshButton: {
+    padding: theme.spacing.xs,
   },
   section: {
     marginTop: theme.spacing.xl,
@@ -787,24 +762,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  infoBox: {
-    marginTop: theme.spacing.xl,
-    marginHorizontal: theme.spacing.md,
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.dark.card,
-    borderRadius: theme.borderRadius.md,
-    borderLeftWidth: 3,
-    borderLeftColor: theme.colors.dark.accent,
-  },
-  infoText: {
-    ...theme.typography.callout,
-    color: theme.colors.dark.text,
-    marginBottom: 4,
-  },
-  infoSubtext: {
-    ...theme.typography.footnote,
-    color: theme.colors.dark.textSecondary,
-  },
   loadingContainer: {
     marginTop: theme.spacing.xl,
     marginHorizontal: theme.spacing.md,
@@ -812,9 +769,42 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.dark.card,
     borderRadius: theme.borderRadius.md,
     alignItems: 'center',
+    gap: theme.spacing.md,
   },
   loadingText: {
     ...theme.typography.subheadline,
     color: theme.colors.dark.textSecondary,
+  },
+  errorContainer: {
+    marginTop: theme.spacing.xl,
+    marginHorizontal: theme.spacing.md,
+    padding: theme.spacing.xl,
+    backgroundColor: theme.colors.dark.card,
+    borderRadius: theme.borderRadius.md,
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  errorTitle: {
+    ...theme.typography.headline,
+    color: theme.colors.dark.danger,
+    fontWeight: '600' as const,
+    marginTop: theme.spacing.sm,
+  },
+  errorText: {
+    ...theme.typography.subheadline,
+    color: theme.colors.dark.textSecondary,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.sm,
+    backgroundColor: theme.colors.dark.accent,
+    borderRadius: theme.borderRadius.md,
+  },
+  retryButtonText: {
+    ...theme.typography.callout,
+    color: theme.colors.dark.background,
+    fontWeight: '600' as const,
   },
 });

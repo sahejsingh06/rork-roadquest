@@ -115,6 +115,39 @@ export const [UserProvider, useUser] = createContextHook(() => {
     await saveUserProfile(updatedProfile, authUser.id);
   }, [userProfile, authUser, saveUserProfile]);
 
+  const updateBio = useCallback(async (bio: string) => {
+    if (!userProfile || !authUser) return;
+    
+    const updatedProfile: UserProfile = {
+      ...userProfile,
+      bio,
+    };
+    setUserProfile(updatedProfile);
+    await saveUserProfile(updatedProfile, authUser.id);
+  }, [userProfile, authUser, saveUserProfile]);
+
+  const updateBirthYear = useCallback(async (birthYear: string) => {
+    if (!userProfile || !authUser) return;
+    
+    const updatedProfile: UserProfile = {
+      ...userProfile,
+      birthYear,
+    };
+    setUserProfile(updatedProfile);
+    await saveUserProfile(updatedProfile, authUser.id);
+  }, [userProfile, authUser, saveUserProfile]);
+
+  const updateCountry = useCallback(async (country: string) => {
+    if (!userProfile || !authUser) return;
+    
+    const updatedProfile: UserProfile = {
+      ...userProfile,
+      country,
+    };
+    setUserProfile(updatedProfile);
+    await saveUserProfile(updatedProfile, authUser.id);
+  }, [userProfile, authUser, saveUserProfile]);
+
   const addCar = useCallback(async (car: Car) => {
     if (!userProfile || !authUser) return;
     
@@ -203,6 +236,9 @@ export const [UserProvider, useUser] = createContextHook(() => {
     updateUsername,
     updateProfilePhoto,
     updateRegion,
+    updateBio,
+    updateBirthYear,
+    updateCountry,
     addCar,
     removeCar,
     markOnboardingAsSeen,

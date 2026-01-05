@@ -14,4 +14,7 @@ export interface UserProfile {
   region?: string;
   cars: Car[];
   usernameSetAt?: number;
+  birthYear?: string;
+  country?: string;
+  bio?: string;
 }
