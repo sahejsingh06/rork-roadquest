@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { StyleSheet, Text, View, Pressable, Platform, ScrollView, Modal, Share, Animated } from 'react-native';
 import MapView, { Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Play, Square, ChevronRight, Target, TrendingUp, Share2, Map, Trophy, Route as RouteIcon, X, Zap, ShoppingBag } from 'lucide-react-native';
@@ -134,16 +134,6 @@ export default function DriveScreen() {
     return 'Good evening';
   };
 
-  const handleStartDrive = () => {
-    if (userProfile && userProfile.cars.length > 0 && !selectedCar) {
-      setShowCarSelector(true);
-    } else if (selectedCar) {
-      startTrip(selectedCar.id, selectedCar.brand, selectedCar.model, selectedCar.icon);
-    } else {
-      startTrip();
-    }
-  };
-
   const handleSelectCar = (car: Car) => {
     setSelectedCar(car);
     setShowCarSelector(false);
@@ -234,11 +224,39 @@ export default function DriveScreen() {
   const currentStep = onboardingSteps[onboardingStep];
   const StepIcon = currentStep?.icon;
 
+  const mapRef = useRef<MapView>(null);
+
+  const handleStartDriveMemo = useCallback(() => {
+    if (userProfile && userProfile.cars.length > 0 && !selectedCar) {
+      setShowCarSelector(true);
+    } else if (selectedCar) {
+      startTrip(selectedCar.id, selectedCar.brand, selectedCar.model, selectedCar.icon);
+    } else {
+      startTrip();
+    }
+  }, [userProfile, selectedCar, startTrip]);
+
   if (!isTracking) {
     return (
       <View style={styles.container}>
+        <MapView
+          ref={mapRef}
+          style={styles.backgroundMap}
+          provider={Platform.OS === 'ios' ? undefined : PROVIDER_GOOGLE}
+          region={region}
+          mapType="standard"
+          showsUserLocation
+          showsMyLocationButton={false}
+          scrollEnabled={false}
+          zoomEnabled={false}
+          rotateEnabled={false}
+          pitchEnabled={false}
+          toolbarEnabled={false}
+          loadingEnabled={false}
+        />
+        <View style={styles.mapOverlay} />
         <LinearGradient
-          colors={['#000000', '#0a0a0a', '#1a1a1a']}
+          colors={['rgba(0,0,0,0.85)', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.85)']}
           style={styles.preStartContainer}
         >
           <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
@@ -365,7 +383,7 @@ export default function DriveScreen() {
               <View style={styles.bottomActions}>
                 <Pressable
                   style={styles.startDriveButton}
-                  onPress={handleStartDrive}
+                  onPress={handleStartDriveMemo}
                   disabled={!hasPermission}
                 >
                   <LinearGradient
@@ -587,6 +605,13 @@ const styles = StyleSheet.create({
   map: {
     ...StyleSheet.absoluteFillObject,
   },
+  backgroundMap: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  mapOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  },
   preStartContainer: {
     flex: 1,
   },
@@ -649,7 +674,7 @@ const styles = StyleSheet.create({
   selectedCarCardTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(28, 28, 30, 0.8)',
+    backgroundColor: 'rgba(28, 28, 30, 0.9)',
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.md,
     gap: theme.spacing.sm,
@@ -676,7 +701,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(10, 132, 255, 0.1)',
+    backgroundColor: 'rgba(10, 132, 255, 0.2)',
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.md,
     borderWidth: 1,
@@ -688,7 +713,7 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
   },
   missionCard: {
-    backgroundColor: 'rgba(10, 132, 255, 0.1)',
+    backgroundColor: 'rgba(10, 132, 255, 0.15)',
     borderRadius: theme.borderRadius.xl,
     padding: theme.spacing.lg,
     borderWidth: 1,
@@ -740,7 +765,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   lastDriveCard: {
-    backgroundColor: 'rgba(28, 28, 30, 0.8)',
+    backgroundColor: 'rgba(28, 28, 30, 0.85)',
     borderRadius: theme.borderRadius.xl,
     padding: theme.spacing.lg,
     borderWidth: 1,
@@ -785,7 +810,7 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.xs,
   },
   roadCoverageTeaser: {
-    backgroundColor: 'rgba(48, 209, 88, 0.1)',
+    backgroundColor: 'rgba(48, 209, 88, 0.15)',
     borderRadius: theme.borderRadius.xl,
     padding: theme.spacing.lg,
     borderWidth: 1,
