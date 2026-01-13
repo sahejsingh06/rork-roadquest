@@ -315,8 +315,8 @@ export const [TripProvider, useTrip] = createContextHook(() => {
       console.log('[TripContext] starting background location updates');
       await Location.startLocationUpdatesAsync(BG_TASK_NAME, {
         accuracy: Location.Accuracy.BestForNavigation,
-        timeInterval: 1000,
-        distanceInterval: 1,
+        timeInterval: 500,
+        distanceInterval: 0.5,
         deferredUpdatesInterval: 0,
         deferredUpdatesDistance: 0,
         showsBackgroundLocationIndicator: true,
@@ -327,6 +327,7 @@ export const [TripProvider, useTrip] = createContextHook(() => {
           ? {
               notificationTitle: 'RoadQuest is tracking your drive',
               notificationBody: 'Location tracking is active to record your route.',
+              notificationColor: '#0A84FF',
             }
           : undefined,
       });
@@ -373,8 +374,8 @@ export const [TripProvider, useTrip] = createContextHook(() => {
       const subscription = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.BestForNavigation,
-          timeInterval: 500,
-          distanceInterval: 1,
+          timeInterval: 250,
+          distanceInterval: 0.5,
           mayShowUserSettingsDialog: true,
         },
         (location) => {
