@@ -415,14 +415,14 @@ export default function MissionsScreen() {
         <View style={styles.statItem}>
           <Clock size={16} color={theme.colors.dark.textSecondary} />
           <Text style={styles.statValue}>{timeUntilReset}</Text>
-          <Text style={styles.statLabel}>Reset</Text>
+          <Text style={styles.statLabel}>Until Reset</Text>
         </View>
       </LinearGradient>
 
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={true}
       >
         <View style={styles.section}>
           <View style={styles.sectionHeaderWithIcon}>

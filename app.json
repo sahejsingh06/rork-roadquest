@@ -43,7 +43,8 @@
         "ACCESS_BACKGROUND_LOCATION",
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "WRITE_EXTERNAL_STORAGE",
+        "android.permission.VIBRATE"
       ]
     },
     "web": {

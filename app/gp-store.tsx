@@ -12,13 +12,9 @@ import type { ItemCategory } from '@/types/store';
 
 export default function GPStoreScreen() {
   const router = useRouter();
-  const { trips } = useTrip();
+  const { totalGPSPoints } = useTrip();
   const { purchaseItem, ownsItem } = useStore();
   const [selectedCategory, setSelectedCategory] = useState<ItemCategory>('featured');
-
-  const totalGPSPoints = useMemo(() => {
-    return Math.floor(trips.reduce((sum, trip) => sum + trip.distance, 0));
-  }, [trips]);
 
   const filteredItems = useMemo(() => {
     if (selectedCategory === 'featured') {
@@ -190,7 +186,7 @@ export default function GPStoreScreen() {
           <ScrollView
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
+            showsVerticalScrollIndicator={true}
           >
             <View style={styles.itemsGrid}>
               {filteredItems.map((item) => {

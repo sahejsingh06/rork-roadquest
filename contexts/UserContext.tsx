@@ -35,7 +35,8 @@ export const [UserProvider, useUser] = createContextHook(() => {
       const stored = await AsyncStorage.getItem(key);
       console.log('User profile loaded:', stored ? 'found' : 'not found');
       
-      const onboardingSeen = await AsyncStorage.getItem(ONBOARDING_KEY);
+      const onboardingKey = `${ONBOARDING_KEY}_${authUserId}`;
+      const onboardingSeen = await AsyncStorage.getItem(onboardingKey);
       setHasSeenOnboarding(onboardingSeen === 'true');
       
       if (stored) {
@@ -171,13 +172,15 @@ export const [UserProvider, useUser] = createContextHook(() => {
   }, [userProfile, authUser, saveUserProfile]);
 
   const markOnboardingAsSeen = useCallback(async () => {
+    if (!authUser) return;
     try {
-      await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
+      const onboardingKey = `${ONBOARDING_KEY}_${authUser.id}`;
+      await AsyncStorage.setItem(onboardingKey, 'true');
       setHasSeenOnboarding(true);
     } catch (error) {
       console.error('Error saving onboarding status:', error);
     }
-  }, []);
+  }, [authUser]);
 
   const canChangeUsername = useCallback(() => {
     if (!userProfile || !userProfile.usernameSetAt) return true;

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { StyleSheet, Text, View, Pressable, Platform, ScrollView, Modal, Share, Animated } from 'react-native';
+import { Image } from 'expo-image';
 import MapView, { Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Play, Square, ChevronRight, Target, TrendingUp, Share2, Map, Trophy, Route as RouteIcon, X, Zap, ShoppingBag } from 'lucide-react-native';
 import { useTrip } from '@/contexts/TripContext';
@@ -283,7 +284,11 @@ export default function DriveScreen() {
                         style={styles.selectedCarCardTop}
                         onPress={() => setShowCarSelector(true)}
                       >
-                        <Text style={styles.selectedCarIconTop}>{selectedCar.icon}</Text>
+                        {selectedCar.icon.startsWith('http') ? (
+                          <Image source={{ uri: selectedCar.icon }} style={styles.selectedCarIconTopImage} />
+                        ) : (
+                          <Text style={styles.selectedCarIconTop}>{selectedCar.icon}</Text>
+                        )}
                         <View style={styles.selectedCarInfoTop}>
                           <Text style={styles.selectedCarBrandTop}>{selectedCar.brand}</Text>
                           <Text style={styles.selectedCarModelTop}>{selectedCar.model} • {selectedCar.year}</Text>
@@ -306,7 +311,7 @@ export default function DriveScreen() {
               <ScrollView 
                 style={styles.preStartScroll}
                 contentContainerStyle={styles.preStartContent}
-                showsVerticalScrollIndicator={false}
+                showsVerticalScrollIndicator={true}
               >
 
                 <View style={styles.missionCard}>
@@ -416,14 +421,18 @@ export default function DriveScreen() {
             <View style={styles.carSelectorModal}>
               <View style={styles.modalHandle} />
               <Text style={styles.modalTitle}>Select Your Car</Text>
-              <ScrollView style={styles.carList} showsVerticalScrollIndicator={false}>
+              <ScrollView style={styles.carList} showsVerticalScrollIndicator={true}>
                 {userProfile?.cars.map((car) => (
                   <Pressable
                     key={car.id}
                     style={styles.carOption}
                     onPress={() => handleSelectCar(car)}
                   >
-                    <Text style={styles.carOptionIcon}>{car.icon}</Text>
+                    {car.icon.startsWith('http') ? (
+                      <Image source={{ uri: car.icon }} style={styles.carOptionIconImage} />
+                    ) : (
+                      <Text style={styles.carOptionIcon}>{car.icon}</Text>
+                    )}
                     <View style={styles.carOptionInfo}>
                       <Text style={styles.carOptionBrand}>{car.brand}</Text>
                       <Text style={styles.carOptionModel}>{car.model} • {car.year}</Text>
@@ -472,7 +481,7 @@ export default function DriveScreen() {
               <ScrollView 
                 style={styles.onboardingFeatures}
                 contentContainerStyle={styles.onboardingFeaturesContent}
-                showsVerticalScrollIndicator={false}
+                showsVerticalScrollIndicator={true}
               >
                 <Text style={styles.featureDescription}>
                   {currentStep.description}
@@ -545,7 +554,11 @@ export default function DriveScreen() {
           <View style={styles.headerRight}>
             {selectedCar && (
               <View style={styles.headerCar}>
-                <Text style={styles.headerCarIcon}>{selectedCar.icon}</Text>
+                {selectedCar.icon.startsWith('http') ? (
+                  <Image source={{ uri: selectedCar.icon }} style={styles.headerCarIconImage} />
+                ) : (
+                  <Text style={styles.headerCarIcon}>{selectedCar.icon}</Text>
+                )}
                 <Text style={styles.headerCarName}>{selectedCar.brand}</Text>
               </View>
             )}
@@ -735,6 +748,11 @@ const styles = StyleSheet.create({
   },
   selectedCarIconTop: {
     fontSize: 32,
+  },
+  selectedCarIconTopImage: {
+    width: 32,
+    height: 32,
+    resizeMode: 'contain' as const,
   },
   selectedCarInfoTop: {
     flex: 1,
@@ -981,6 +999,11 @@ const styles = StyleSheet.create({
   headerCarIcon: {
     fontSize: 20,
   },
+  headerCarIconImage: {
+    width: 20,
+    height: 20,
+    resizeMode: 'contain' as const,
+  },
   headerCarName: {
     ...theme.typography.callout,
     color: theme.colors.dark.text,
@@ -1089,6 +1112,11 @@ const styles = StyleSheet.create({
   },
   carOptionIcon: {
     fontSize: 40,
+  },
+  carOptionIconImage: {
+    width: 40,
+    height: 40,
+    resizeMode: 'contain' as const,
   },
   carOptionInfo: {
     flex: 1,
