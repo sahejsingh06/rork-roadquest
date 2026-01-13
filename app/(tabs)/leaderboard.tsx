@@ -56,15 +56,17 @@ export default function LeaderboardScreen() {
 
   const { syncToBackend } = useUser();
   const [lastSyncTime, setLastSyncTime] = useState<number>(0);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     const syncData = async () => {
-      if (authUser && userProfile) {
+      if (authUser && userProfile && !isSyncing) {
         const now = Date.now();
-        if (now - lastSyncTime < 5000) return;
+        if (now - lastSyncTime < 3000) return;
         
-        console.log('Syncing stats to backend:', localStats);
+        console.log('[LEADERBOARD] Syncing stats to backend:', localStats);
         setLastSyncTime(now);
+        setIsSyncing(true);
         try {
           await syncToBackend({
             totalDistance: localStats.totalDistance,
@@ -72,10 +74,13 @@ export default function LeaderboardScreen() {
             totalGPSPoints: localStats.totalGPSPoints,
             roadCoveragePercent: localStats.roadCoveragePercent,
           });
-          console.log('Sync completed, refetching leaderboard...');
-          leaderboardQuery.refetch();
+          console.log('[LEADERBOARD] Sync completed successfully');
+          await leaderboardQuery.refetch();
+          console.log('[LEADERBOARD] Leaderboard data refreshed');
         } catch (error) {
-          console.log('Sync failed:', error);
+          console.error('[LEADERBOARD] Sync failed:', error);
+        } finally {
+          setIsSyncing(false);
         }
       }
     };
@@ -92,40 +97,48 @@ export default function LeaderboardScreen() {
     },
     {
       enabled: !!authUser,
-      refetchInterval: 10000,
-      retry: 5,
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 8000),
-      staleTime: 3000,
+      refetchInterval: 5000,
+      retry: 3,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
+      staleTime: 1000,
       refetchOnMount: 'always',
       refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
     }
   );
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
+    console.log('[LEADERBOARD] Manual refresh triggered');
     try {
       if (authUser && userProfile) {
+        console.log('[LEADERBOARD] Syncing user stats:', localStats);
         await syncToBackend({
           totalDistance: localStats.totalDistance,
           totalTrips: localStats.totalTrips,
           totalGPSPoints: localStats.totalGPSPoints,
           roadCoveragePercent: localStats.roadCoveragePercent,
         });
+        console.log('[LEADERBOARD] User stats synced');
       }
       await leaderboardQuery.refetch();
+      console.log('[LEADERBOARD] Leaderboard refreshed successfully');
     } catch (error) {
-      console.log('Refresh failed:', error);
+      console.error('[LEADERBOARD] Refresh failed:', error);
     } finally {
       setIsRefreshing(false);
     }
   };
 
   const leaderboardData = useMemo(() => {
-    console.log('Leaderboard query state:', {
+    console.log('[LEADERBOARD] Query state:', {
       isLoading: leaderboardQuery.isLoading,
       isError: leaderboardQuery.isError,
       error: leaderboardQuery.error?.message,
       dataLength: leaderboardQuery.data?.entries?.length || 0,
+      scope: selectedScope,
+      type: selectedType,
+      period: selectedPeriod,
     });
 
     if (leaderboardQuery.data) {

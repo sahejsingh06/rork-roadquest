@@ -200,7 +200,7 @@ export const [UserProvider, useUser] = createContextHook(() => {
   const syncToBackend = useCallback(async (statsData?: { totalDistance: number; totalTrips: number; totalGPSPoints: number; roadCoveragePercent: number }) => {
     if (!authUser || !userProfile) return;
     
-    console.log('Syncing user to backend:', userProfile.username);
+    console.log('[USER_SYNC] Syncing user to backend:', userProfile.username, statsData);
     try {
       const syncPromise = syncMutation.mutateAsync({
         username: userProfile.username,
@@ -216,21 +216,31 @@ export const [UserProvider, useUser] = createContextHook(() => {
       await Promise.race([
         syncPromise,
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Sync timeout')), 8000)
+          setTimeout(() => reject(new Error('Sync timeout')), 10000)
         )
       ]);
       
-      console.log('User synced successfully');
+      console.log('[USER_SYNC] User synced successfully to backend');
     } catch (error: any) {
-      console.log('Backend sync failed (app continues locally):', error?.message || 'Unknown error');
+      console.error('[USER_SYNC] Backend sync failed:', error?.message || 'Unknown error');
+      throw error;
     }
   }, [authUser, userProfile, syncMutation]);
 
   useEffect(() => {
     if (authUser && userProfile?.username) {
-      syncToBackend().catch(() => {});
+      console.log('[USER_SYNC] Initial sync triggered for:', userProfile.username);
+      syncToBackend({ 
+        totalDistance: 0, 
+        totalTrips: 0, 
+        totalGPSPoints: 0, 
+        roadCoveragePercent: 0 
+      }).catch((error) => {
+        console.error('[USER_SYNC] Initial sync failed:', error);
+      });
     }
-  }, [authUser, userProfile?.username, syncToBackend]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser?.id, userProfile?.username]);
 
   return {
     userProfile,
