@@ -19,6 +19,8 @@ const BG_TASK_NAME = 'roadquest:background-location';
 const PAUSE_THRESHOLD_SPEED = 7 / 3.6;
 const PAUSE_THRESHOLD_TIME = 10 * 60 * 1000;
 const WARNING_TIME = 10 * 60 * 1000;
+const AUTO_START_SPEED_KMH = 10;
+const AUTO_STOP_DURATION = 3 * 60 * 1000;
 
 TaskManager.defineTask(BG_TASK_NAME, async ({ data, error }) => {
   if (Platform.OS === 'web') return;
@@ -120,7 +122,11 @@ export const [TripProvider, useTrip] = createContextHook(() => {
   const [useKmh, setUseKmh] = useState(true);
   const [bonusGPPoints, setBonusGPPoints] = useState(0);
   const [claimedMissionIds, setClaimedMissionIds] = useState<string[]>([]);
+  const [isAutoTrackingEnabled, setIsAutoTrackingEnabled] = useState(true);
+  const [pendingTripForCarSelection, setPendingTripForCarSelection] = useState<Trip | null>(null);
+  const [shouldAutoStopTrip, setShouldAutoStopTrip] = useState(false);
   const isStoppingRef = useRef(false);
+  const lastZeroSpeedTime = useRef<number | null>(null);
 
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
   const appState = useRef<AppStateStatus>(AppState.currentState);
@@ -396,6 +402,26 @@ export const [TripProvider, useTrip] = createContextHook(() => {
           setCurrentLocation(point);
 
           setCurrentTrip((prev) => {
+            if (!prev && isAutoTrackingEnabled && speedKmh >= AUTO_START_SPEED_KMH) {
+              console.log('[AUTO-START] Speed exceeded', AUTO_START_SPEED_KMH, 'km/h, starting trip automatically');
+              const autoTrip: Trip = {
+                id: Date.now().toString(),
+                startTime: Date.now(),
+                endTime: null,
+                distance: 0,
+                maxSpeed: 0,
+                avgSpeed: 0,
+                duration: 0,
+                locations: [],
+                isPaused: false,
+                pausedDuration: 0,
+              };
+              setIsTracking(true);
+              isStoppingRef.current = false;
+              void AsyncStorage.setItem(ACTIVE_TRIP_STORAGE_KEY, JSON.stringify(autoTrip));
+              void AsyncStorage.removeItem(BG_LAST_POINT_STORAGE_KEY);
+              return autoTrip;
+            }
             if (!prev || isStoppingRef.current) return prev;
 
             const updatedLocations = [...prev.locations, point];
@@ -414,6 +440,21 @@ export const [TripProvider, useTrip] = createContextHook(() => {
             const maxSpeed = Math.max(prev.maxSpeed, speedKmh);
             const duration = Date.now() - prev.startTime - prev.pausedDuration;
             const avgSpeed = duration > 0 ? distance / (duration / 1000 / 3600) : 0;
+
+            if (speedKmh === 0 || speedKmh < 1) {
+              if (lastZeroSpeedTime.current === null) {
+                lastZeroSpeedTime.current = Date.now();
+              } else {
+                const zeroSpeedDuration = Date.now() - lastZeroSpeedTime.current;
+                if (zeroSpeedDuration >= AUTO_STOP_DURATION) {
+                  console.log('[AUTO-STOP] Speed has been 0 for', AUTO_STOP_DURATION / 1000, 'seconds, auto-stopping trip');
+                  setShouldAutoStopTrip(true);
+                  return prev;
+                }
+              }
+            } else {
+              lastZeroSpeedTime.current = null;
+            }
 
             if (speedKmh < PAUSE_THRESHOLD_SPEED) {
               if (lastLowSpeedTime.current === null) {
@@ -490,7 +531,7 @@ export const [TripProvider, useTrip] = createContextHook(() => {
     } catch (error) {
       console.error('[TripContext] error starting foreground tracking:', error);
     }
-  }, [calculateDistance]);
+  }, [calculateDistance, isAutoTrackingEnabled]);
 
   useEffect(() => {
     loadTrips();
@@ -587,6 +628,7 @@ export const [TripProvider, useTrip] = createContextHook(() => {
 
   const stopTrip = useCallback(() => {
     console.log('stopTrip called, isTracking:', isTracking, 'currentTrip:', currentTrip?.id);
+    setShouldAutoStopTrip(false);
     
     if (isStoppingRef.current) {
       console.log('Already stopping, ignoring');
@@ -657,6 +699,11 @@ export const [TripProvider, useTrip] = createContextHook(() => {
       roadCoveragePercent: 0.8,
     });
 
+    if (!endedTrip.carId) {
+      console.log('Trip has no car selected, showing car selector');
+      setPendingTripForCarSelection(endedTrip);
+    }
+
     console.log('Trip ended and saved:', endedTrip.id, 'distance:', endedTrip.distance);
 
     setCurrentTrip(null);
@@ -668,6 +715,13 @@ export const [TripProvider, useTrip] = createContextHook(() => {
       isStoppingRef.current = false;
     }, 500);
   }, [currentTrip, isTracking, syncToBackend, stopBackgroundLocation, stopForegroundLocationWatch]);
+
+  useEffect(() => {
+    if (shouldAutoStopTrip && isTracking) {
+      console.log('[AUTO-STOP] Triggering auto-stop');
+      stopTrip();
+    }
+  }, [shouldAutoStopTrip, isTracking, stopTrip]);
 
   const deleteTrip = useCallback((tripId: string) => {
     setTrips((prev) => {
@@ -720,6 +774,25 @@ export const [TripProvider, useTrip] = createContextHook(() => {
     return claimedMissionIds.includes(missionId);
   }, [claimedMissionIds]);
 
+  const assignCarToTrip = useCallback((tripId: string, carId: string, carBrand: string, carModel: string, carIcon: string) => {
+    setTrips((prev) => {
+      const updatedTrips = prev.map(trip => 
+        trip.id === tripId ? { ...trip, carId, carBrand, carModel, carIcon } : trip
+      );
+      saveTrips(updatedTrips);
+      return updatedTrips;
+    });
+    setPendingTripForCarSelection(null);
+  }, []);
+
+  const dismissPendingCarSelection = useCallback(() => {
+    setPendingTripForCarSelection(null);
+  }, []);
+
+  const toggleAutoTracking = useCallback((enabled: boolean) => {
+    setIsAutoTrackingEnabled(enabled);
+  }, []);
+
   const totalGPSPoints = Math.floor(stats.totalDistance) + bonusGPPoints;
 
   const toggleTripSharing = useCallback((tripId: string, shared: boolean) => {
@@ -747,6 +820,8 @@ export const [TripProvider, useTrip] = createContextHook(() => {
     useKmh,
     bonusGPPoints,
     totalGPSPoints,
+    isAutoTrackingEnabled,
+    pendingTripForCarSelection,
     startTrip,
     stopTrip,
     deleteTrip,
@@ -755,5 +830,8 @@ export const [TripProvider, useTrip] = createContextHook(() => {
     getTripById,
     addBonusGPPoints,
     isMissionClaimed,
+    assignCarToTrip,
+    dismissPendingCarSelection,
+    toggleAutoTracking,
   };
 });

@@ -25,12 +25,16 @@ export default function DriveScreen() {
     toggleUnit,
     trips,
     stats,
+    pendingTripForCarSelection,
+    assignCarToTrip,
+    dismissPendingCarSelection,
   } = useTrip();
 
   const { userProfile, hasSeenOnboarding, markOnboardingAsSeen } = useUser();
   const totalGPSPoints = useTrip().totalGPSPoints;
   const [selectedCar, setSelectedCar] = useState<Car | null>(null);
   const [showCarSelector, setShowCarSelector] = useState(false);
+  const [showPostTripCarSelector, setShowPostTripCarSelector] = useState(false);
   const [displayDuration, setDisplayDuration] = useState(0);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
@@ -56,6 +60,12 @@ export default function DriveScreen() {
       }, 1000);
     }
   }, [hasSeenOnboarding, isTracking, fadeAnim]);
+
+  useEffect(() => {
+    if (pendingTripForCarSelection && userProfile && userProfile.cars.length > 0) {
+      setShowPostTripCarSelector(true);
+    }
+  }, [pendingTripForCarSelection, userProfile]);
 
   const todayMission = useMemo(() => {
     const today = new Date();
@@ -137,6 +147,19 @@ export default function DriveScreen() {
   const handleSelectCar = (car: Car) => {
     setSelectedCar(car);
     setShowCarSelector(false);
+  };
+
+  const handleAssignCarToTrip = (car: Car) => {
+    if (pendingTripForCarSelection) {
+      assignCarToTrip(
+        pendingTripForCarSelection.id,
+        car.id,
+        car.brand,
+        car.model,
+        car.icon
+      );
+    }
+    setShowPostTripCarSelector(false);
   };
 
   const displaySpeed = useKmh ? currentSpeed : currentSpeed * 0.621371;
@@ -517,6 +540,53 @@ export default function DriveScreen() {
               </Pressable>
             </View>
           </Animated.View>
+        </Modal>
+
+        <Modal
+          visible={showPostTripCarSelector}
+          transparent
+          animationType="slide"
+          onRequestClose={() => {
+            setShowPostTripCarSelector(false);
+            dismissPendingCarSelection();
+          }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.carSelectorModal}>
+              <View style={styles.modalHandle} />
+              <Text style={styles.modalTitle}>Which car did you drive?</Text>
+              <Text style={styles.modalSubtitle}>Select the car you used for this trip</Text>
+              <ScrollView style={styles.carList} showsVerticalScrollIndicator={true}>
+                {userProfile?.cars.map((car) => (
+                  <Pressable
+                    key={car.id}
+                    style={styles.carOption}
+                    onPress={() => handleAssignCarToTrip(car)}
+                  >
+                    {car.icon.startsWith('http') ? (
+                      <Image source={{ uri: car.icon }} style={styles.carOptionIconImage} />
+                    ) : (
+                      <Text style={styles.carOptionIcon}>{car.icon}</Text>
+                    )}
+                    <View style={styles.carOptionInfo}>
+                      <Text style={styles.carOptionBrand}>{car.brand}</Text>
+                      <Text style={styles.carOptionModel}>{car.model} • {car.year}</Text>
+                    </View>
+                    <ChevronRight size={20} color={theme.colors.dark.textSecondary} />
+                  </Pressable>
+                ))}
+              </ScrollView>
+              <Pressable
+                style={styles.skipButton}
+                onPress={() => {
+                  setShowPostTripCarSelector(false);
+                  dismissPendingCarSelection();
+                }}
+              >
+                <Text style={styles.skipButtonText}>Skip</Text>
+              </Pressable>
+            </View>
+          </View>
         </Modal>
       </View>
     );
@@ -1096,6 +1166,11 @@ const styles = StyleSheet.create({
     ...theme.typography.title3,
     color: theme.colors.dark.text,
     fontWeight: '700' as const,
+    marginBottom: theme.spacing.sm,
+  },
+  modalSubtitle: {
+    ...theme.typography.subheadline,
+    color: theme.colors.dark.textSecondary,
     marginBottom: theme.spacing.lg,
   },
   carList: {
