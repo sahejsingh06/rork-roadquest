@@ -14,20 +14,19 @@ import { trpc } from '@/lib/trpc';
 import type { Car } from '@/types/user';
 
 const CAR_BRANDS = [
-  { name: 'Toyota', icon: '🚗' },
-  { name: 'Honda', icon: '🚙' },
-  { name: 'BMW', icon: '🏎️' },
-  { name: 'Mercedes', icon: '🚘' },
-  { name: 'Audi', icon: '🚓' },
-  { name: 'Ford', icon: '🚕' },
-  { name: 'Tesla', icon: '⚡' },
-  { name: 'Porsche', icon: '🏁' },
-  { name: 'Ferrari', icon: '🔴' },
-  { name: 'Lamborghini', icon: '🟡' },
-  { name: 'Nissan', icon: '🔵' },
-  { name: 'Mazda', icon: '⭕' },
-  { name: 'Volkswagen', icon: '🔷' },
-  { name: 'Other', icon: '🚐' },
+  { name: 'Toyota', logo: 'https://global.toyota/pages/global_toyota/mobility/toyota-brand/emblem_001.jpg' },
+  { name: 'Honda', logo: 'https://1000logos.net/wp-content/uploads/2018/03/Honda-Logo-2000.png' },
+  { name: 'Hyundai', logo: 'https://di-uploads-pod5.dealerinspire.com/triplejsaipan/uploads/2018/05/HyundaiLogoStacked_4cblk-1024x659.gif' },
+  { name: 'BMW', logo: 'https://upload.wikimedia.org/wikipedia/commons/4/44/BMW.svg' },
+  { name: 'Mercedes', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/90/Mercedes-Logo.svg/500px-Mercedes-Logo.svg.png' },
+  { name: 'Audi', logo: 'https://di-uploads-pod3.dealerinspire.com/vindeversautohausofsylvania/uploads/2018/10/Audi-Logo-Banner.png' },
+  { name: 'Tesla', logo: 'https://upload.wikimedia.org/wikipedia/commons/e/e8/Tesla_logo.png' },
+  { name: 'Porsche', logo: 'https://1000logos.net/wp-content/uploads/2018/02/Porsche-Logo.png' },
+  { name: 'Nissan', logo: 'https://1000logos.net/wp-content/uploads/2020/03/nissan-logo.png' },
+  { name: 'Mazda', logo: 'https://logos-world.net/wp-content/uploads/2020/05/Mazda-Logo.png' },
+  { name: 'Kia', logo: 'https://upload.wikimedia.org/wikipedia/commons/4/47/KIA_logo2.svg' },
+  { name: 'Volkswagen', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Volkswagen_logo_2019.svg/1280px-Volkswagen_logo_2019.svg.png' },
+  { name: 'Other', logo: 'https://static.vecteezy.com/system/resources/previews/046/361/987/non_2x/car-logo-silhouette-illustration-minimal-line-art-free-vector.jpg' },
 ];
 
 const REGIONS = [
@@ -41,14 +40,38 @@ const REGIONS = [
 ];
 
 const COUNTRIES = [
-  'United States', 'Canada', 'United Kingdom', 'Germany', 'France', 'Japan',
-  'Australia', 'Brazil', 'India', 'China', 'South Korea', 'Italy', 'Spain',
-  'Mexico', 'Netherlands', 'Sweden', 'Norway', 'Denmark', 'Finland', 'Poland',
-  'Russia', 'Turkey', 'Saudi Arabia', 'UAE', 'South Africa', 'Argentina',
-  'Chile', 'Colombia', 'Indonesia', 'Malaysia', 'Singapore', 'Thailand',
-  'Vietnam', 'Philippines', 'New Zealand', 'Ireland', 'Belgium', 'Switzerland',
-  'Austria', 'Portugal', 'Greece', 'Czech Republic', 'Romania', 'Hungary',
-  'Ukraine', 'Egypt', 'Nigeria', 'Kenya', 'Morocco', 'Other',
+  'Afghanistan', 'Albania', 'Algeria', 'Andorra', 'Angola', 'Antigua and Barbuda',
+  'Argentina', 'Armenia', 'Australia', 'Austria', 'Azerbaijan', 'Bahamas', 'Bahrain',
+  'Bangladesh', 'Barbados', 'Belarus', 'Belgium', 'Belize', 'Benin', 'Bhutan',
+  'Bolivia', 'Bosnia and Herzegovina', 'Botswana', 'Brazil', 'Brunei', 'Bulgaria',
+  'Burkina Faso', 'Burundi', 'Cabo Verde', 'Cambodia', 'Cameroon', 'Canada',
+  'Central African Republic', 'Chad', 'Chile', 'China', 'Colombia', 'Comoros',
+  'Congo', 'Costa Rica', 'Croatia', 'Cuba', 'Cyprus', 'Czech Republic',
+  'Democratic Republic of the Congo', 'Denmark', 'Djibouti', 'Dominica',
+  'Dominican Republic', 'East Timor', 'Ecuador', 'Egypt', 'El Salvador',
+  'Equatorial Guinea', 'Eritrea', 'Estonia', 'Eswatini', 'Ethiopia', 'Fiji',
+  'Finland', 'France', 'Gabon', 'Gambia', 'Georgia', 'Germany', 'Ghana', 'Greece',
+  'Grenada', 'Guatemala', 'Guinea', 'Guinea-Bissau', 'Guyana', 'Haiti', 'Honduras',
+  'Hungary', 'Iceland', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland', 'Israel',
+  'Italy', 'Ivory Coast', 'Jamaica', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya',
+  'Kiribati', 'Kosovo', 'Kuwait', 'Kyrgyzstan', 'Laos', 'Latvia', 'Lebanon',
+  'Lesotho', 'Liberia', 'Libya', 'Liechtenstein', 'Lithuania', 'Luxembourg',
+  'Madagascar', 'Malawi', 'Malaysia', 'Maldives', 'Mali', 'Malta', 'Marshall Islands',
+  'Mauritania', 'Mauritius', 'Mexico', 'Micronesia', 'Moldova', 'Monaco', 'Mongolia',
+  'Montenegro', 'Morocco', 'Mozambique', 'Myanmar', 'Namibia', 'Nauru', 'Nepal',
+  'Netherlands', 'New Zealand', 'Nicaragua', 'Niger', 'Nigeria', 'North Korea',
+  'North Macedonia', 'Norway', 'Oman', 'Pakistan', 'Palau', 'Palestine', 'Panama',
+  'Papua New Guinea', 'Paraguay', 'Peru', 'Philippines', 'Poland', 'Portugal',
+  'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saint Kitts and Nevis', 'Saint Lucia',
+  'Saint Vincent and the Grenadines', 'Samoa', 'San Marino', 'Sao Tome and Principe',
+  'Saudi Arabia', 'Senegal', 'Serbia', 'Seychelles', 'Sierra Leone', 'Singapore',
+  'Slovakia', 'Slovenia', 'Solomon Islands', 'Somalia', 'South Africa', 'South Korea',
+  'South Sudan', 'Spain', 'Sri Lanka', 'Sudan', 'Suriname', 'Sweden', 'Switzerland',
+  'Syria', 'Taiwan', 'Tajikistan', 'Tanzania', 'Thailand', 'Togo', 'Tonga',
+  'Trinidad and Tobago', 'Tunisia', 'Turkey', 'Turkmenistan', 'Tuvalu', 'Uganda',
+  'Ukraine', 'United Arab Emirates', 'United Kingdom', 'United States', 'Uruguay',
+  'Uzbekistan', 'Vanuatu', 'Vatican City', 'Venezuela', 'Vietnam', 'Yemen',
+  'Zambia', 'Zimbabwe', 'Other',
 ];
 
 export default function ProfileScreen() {
@@ -66,7 +89,7 @@ export default function ProfileScreen() {
   const [carBrand, setCarBrand] = useState('');
   const [carModel, setCarModel] = useState('');
   const [carYear, setCarYear] = useState('');
-  const [selectedCarIcon, setSelectedCarIcon] = useState('🚗');
+  const [selectedCarLogo, setSelectedCarLogo] = useState(CAR_BRANDS[0].logo);
   const [editBio, setEditBio] = useState('');
   const [editBirthYear, setEditBirthYear] = useState('');
   const [editCountry, setEditCountry] = useState('');
@@ -160,7 +183,7 @@ export default function ProfileScreen() {
       brand: carBrand,
       model: carModel,
       year: carYear,
-      icon: selectedCarIcon,
+      icon: selectedCarLogo,
     };
     
     await addCar(newCar);
@@ -168,7 +191,7 @@ export default function ProfileScreen() {
     setCarBrand('');
     setCarModel('');
     setCarYear('');
-    setSelectedCarIcon('🚗');
+    setSelectedCarLogo(CAR_BRANDS[0].logo);
   };
 
   const openEditModal = () => {
@@ -187,7 +210,7 @@ export default function ProfileScreen() {
     setCarBrand('');
     setCarModel('');
     setCarYear('');
-    setSelectedCarIcon('🚗');
+    setSelectedCarLogo(CAR_BRANDS[0].logo);
     setIsCarModalVisible(true);
   };
 
@@ -363,10 +386,16 @@ export default function ProfileScreen() {
                       ]}
                       onPress={() => {
                         setCarBrand(brand.name);
-                        setSelectedCarIcon(brand.icon);
+                        setSelectedCarLogo(brand.logo);
                       }}
                     >
-                      <Text style={styles.brandIcon}>{brand.icon}</Text>
+                      <View style={styles.brandLogoContainer}>
+                        <Image
+                          source={{ uri: brand.logo }}
+                          style={styles.brandLogo}
+                          contentFit="contain"
+                        />
+                      </View>
                       <Text style={[
                         styles.brandText,
                         carBrand === brand.name && styles.brandTextSelected,
@@ -904,7 +933,13 @@ export default function ProfileScreen() {
             <View style={styles.carsList}>
               {userProfile.cars.map((car) => (
                 <View key={car.id} style={styles.carCard}>
-                  <Text style={styles.carIcon}>{car.icon}</Text>
+                  <View style={styles.carLogoContainer}>
+                    <Image
+                      source={{ uri: car.icon }}
+                      style={styles.carLogo}
+                      contentFit="contain"
+                    />
+                  </View>
                   <View style={styles.carInfo}>
                     <Text style={styles.carBrand}>{car.brand}</Text>
                     <Text style={styles.carModel}>{car.model} • {car.year}</Text>
@@ -1095,8 +1130,18 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     gap: theme.spacing.md,
   },
-  carIcon: {
-    fontSize: 40,
+  carLogoContainer: {
+    width: 56,
+    height: 42,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: theme.borderRadius.sm,
+    overflow: 'hidden',
+  },
+  carLogo: {
+    width: 52,
+    height: 38,
   },
   carInfo: {
     flex: 1,
@@ -1310,9 +1355,19 @@ const styles = StyleSheet.create({
   brandItemSelected: {
     backgroundColor: theme.colors.dark.accent,
   },
-  brandIcon: {
-    fontSize: 32,
+  brandLogoContainer: {
+    width: 48,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: theme.spacing.xs,
+    backgroundColor: '#FFFFFF',
+    borderRadius: theme.borderRadius.sm,
+    overflow: 'hidden',
+  },
+  brandLogo: {
+    width: 44,
+    height: 32,
   },
   brandText: {
     ...theme.typography.caption1,
