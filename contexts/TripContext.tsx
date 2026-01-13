@@ -1,7 +1,8 @@
 import createContextHook from '@nkzw/create-context-hook';
 import * as Location from 'expo-location';
+import * as TaskManager from 'expo-task-manager';
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { Platform, Alert } from 'react-native';
+import { Platform, Alert, AppState, type AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Trip, LocationPoint, TripStats } from '@/types/trip';
 import { useUser } from '@/contexts/UserContext';
@@ -10,9 +11,96 @@ const TRIPS_STORAGE_KEY = '@roadquest_trips';
 const STATS_STORAGE_KEY = '@roadquest_stats';
 const BONUS_GP_STORAGE_KEY = '@roadquest_bonus_gp';
 const CLAIMED_MISSIONS_KEY = '@roadquest_claimed_missions';
+
+const ACTIVE_TRIP_STORAGE_KEY = '@roadquest_active_trip';
+const BG_LAST_POINT_STORAGE_KEY = '@roadquest_bg_last_point';
+const BG_TASK_NAME = 'roadquest:background-location';
+
 const PAUSE_THRESHOLD_SPEED = 7 / 3.6;
 const PAUSE_THRESHOLD_TIME = 10 * 60 * 1000;
 const WARNING_TIME = 10 * 60 * 1000;
+
+TaskManager.defineTask(BG_TASK_NAME, async ({ data, error }) => {
+  if (Platform.OS === 'web') return;
+
+  if (error) {
+    console.error('[BG_LOCATION_TASK] error:', error);
+    return;
+  }
+
+  try {
+    const payload = data as { locations?: Location.LocationObject[] } | undefined;
+    const locations = payload?.locations ?? [];
+    if (locations.length === 0) return;
+
+    const activeTripRaw = await AsyncStorage.getItem(ACTIVE_TRIP_STORAGE_KEY);
+    if (!activeTripRaw) {
+      console.log('[BG_LOCATION_TASK] no active trip in storage');
+      return;
+    }
+
+    const activeTrip = JSON.parse(activeTripRaw) as Trip;
+
+    const lastPointRaw = await AsyncStorage.getItem(BG_LAST_POINT_STORAGE_KEY);
+    const lastPoint = (lastPointRaw ? (JSON.parse(lastPointRaw) as LocationPoint) : null) as LocationPoint | null;
+
+    let mutableTrip: Trip = activeTrip;
+    let mutableLastPoint: LocationPoint | null = lastPoint;
+
+    for (const loc of locations) {
+      const speedMps = (loc.coords.speed ?? 0) < 0 ? 0 : (loc.coords.speed ?? 0);
+      const speedKmh = speedMps * 3.6;
+
+      const point: LocationPoint = {
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+        speed: speedKmh,
+        timestamp: loc.timestamp,
+        accuracy: loc.coords.accuracy,
+      };
+
+      const updatedLocations = [...(mutableTrip.locations ?? []), point];
+      let distance = mutableTrip.distance ?? 0;
+
+      const prevPoint = mutableLastPoint ?? (mutableTrip.locations?.length ? mutableTrip.locations[mutableTrip.locations.length - 1] : null);
+      if (prevPoint) {
+        const R = 6371;
+        const dLat = (point.latitude - prevPoint.latitude) * Math.PI / 180;
+        const dLon = (point.longitude - prevPoint.longitude) * Math.PI / 180;
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(prevPoint.latitude * Math.PI / 180) * Math.cos(point.latitude * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        distance += R * c;
+      }
+
+      const maxSpeed = Math.max(mutableTrip.maxSpeed ?? 0, speedKmh);
+      const duration = Date.now() - (mutableTrip.startTime ?? Date.now()) - (mutableTrip.pausedDuration ?? 0);
+      const avgSpeed = duration > 0 ? distance / (duration / 1000 / 3600) : 0;
+
+      mutableTrip = {
+        ...mutableTrip,
+        locations: updatedLocations,
+        distance,
+        maxSpeed,
+        avgSpeed,
+        duration,
+      };
+
+      mutableLastPoint = point;
+    }
+
+    await AsyncStorage.setItem(ACTIVE_TRIP_STORAGE_KEY, JSON.stringify(mutableTrip));
+    if (mutableLastPoint) {
+      await AsyncStorage.setItem(BG_LAST_POINT_STORAGE_KEY, JSON.stringify(mutableLastPoint));
+    }
+
+    console.log('[BG_LOCATION_TASK] stored batch:', locations.length, 'trip:', mutableTrip.id);
+  } catch (e) {
+    console.error('[BG_LOCATION_TASK] failed to process batch:', e);
+  }
+});
 
 export const [TripProvider, useTrip] = createContextHook(() => {
   const { syncToBackend } = useUser();
@@ -35,6 +123,8 @@ export const [TripProvider, useTrip] = createContextHook(() => {
   const isStoppingRef = useRef(false);
 
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
+  const appState = useRef<AppStateStatus>(AppState.currentState);
+  const appStateSub = useRef<{ remove: () => void } | null>(null);
   const pauseTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastLowSpeedTime = useRef<number | null>(null);
   const hasShownWarning = useRef<boolean>(false);
@@ -49,26 +139,6 @@ export const [TripProvider, useTrip] = createContextHook(() => {
     statsRef.current = stats;
   }, [stats]);
 
-  useEffect(() => {
-    loadTrips();
-    loadStats();
-    loadBonusGP();
-    loadClaimedMissions();
-    requestPermissions();
-
-    return () => {
-      if (locationSubscription.current) {
-        try {
-          if (typeof locationSubscription.current.remove === 'function') {
-            locationSubscription.current.remove();
-          }
-        } catch (error) {
-          console.error('Error removing location subscription:', error);
-        }
-        locationSubscription.current = null;
-      }
-    };
-  }, []);
 
   const requestPermissions = async () => {
     try {
@@ -218,7 +288,68 @@ export const [TripProvider, useTrip] = createContextHook(() => {
     }
   };
 
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const stopForegroundLocationWatch = useCallback(async () => {
+    if (locationSubscription.current) {
+      try {
+        console.log('[TripContext] stopping foreground location watch');
+        if (typeof locationSubscription.current.remove === 'function') {
+          locationSubscription.current.remove();
+        }
+      } catch (error) {
+        console.error('[TripContext] failed stopping foreground watch:', error);
+      }
+      locationSubscription.current = null;
+    }
+  }, []);
+
+  const startBackgroundLocation = useCallback(async () => {
+    if (Platform.OS === 'web') return;
+
+    try {
+      const started = await Location.hasStartedLocationUpdatesAsync(BG_TASK_NAME);
+      if (started) {
+        console.log('[TripContext] background location already started');
+        return;
+      }
+
+      console.log('[TripContext] starting background location updates');
+      await Location.startLocationUpdatesAsync(BG_TASK_NAME, {
+        accuracy: Location.Accuracy.BestForNavigation,
+        timeInterval: 1000,
+        distanceInterval: 1,
+        deferredUpdatesInterval: 0,
+        deferredUpdatesDistance: 0,
+        showsBackgroundLocationIndicator: true,
+        pausesUpdatesAutomatically: false,
+        activityType: Location.ActivityType.AutomotiveNavigation,
+        mayShowUserSettingsDialog: true,
+        foregroundService: Platform.OS === 'android'
+          ? {
+              notificationTitle: 'RoadQuest is tracking your drive',
+              notificationBody: 'Location tracking is active to record your route.',
+            }
+          : undefined,
+      });
+    } catch (e) {
+      console.error('[TripContext] failed to start background location:', e);
+    }
+  }, []);
+
+  const stopBackgroundLocation = useCallback(async () => {
+    if (Platform.OS === 'web') return;
+
+    try {
+      const started = await Location.hasStartedLocationUpdatesAsync(BG_TASK_NAME);
+      if (!started) return;
+
+      console.log('[TripContext] stopping background location updates');
+      await Location.stopLocationUpdatesAsync(BG_TASK_NAME);
+    } catch (e) {
+      console.error('[TripContext] failed to stop background location:', e);
+    }
+  }, []);
+
+  const calculateDistance = useCallback((lat1: number, lon1: number, lat2: number, lon2: number): number => {
     const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
@@ -228,7 +359,175 @@ export const [TripProvider, useTrip] = createContextHook(() => {
       Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
-  };
+  }, []);
+
+  const startForegroundLocationWatch = useCallback(async () => {
+    if (Platform.OS === 'web') return;
+    if (locationSubscription.current) {
+      console.log('[TripContext] foreground location watch already active');
+      return;
+    }
+
+    try {
+      console.log('[TripContext] starting foreground watchPositionAsync');
+      const subscription = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.BestForNavigation,
+          timeInterval: 500,
+          distanceInterval: 1,
+          mayShowUserSettingsDialog: true,
+        },
+        (location) => {
+          if (isStoppingRef.current) return;
+
+          const speed = (location.coords.speed || 0) < 0 ? 0 : (location.coords.speed || 0);
+          const speedKmh = speed * 3.6;
+
+          const point: LocationPoint = {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+            speed: speedKmh,
+            timestamp: location.timestamp,
+            accuracy: location.coords.accuracy,
+          };
+
+          setCurrentSpeed(speedKmh);
+          setCurrentLocation(point);
+
+          setCurrentTrip((prev) => {
+            if (!prev || isStoppingRef.current) return prev;
+
+            const updatedLocations = [...prev.locations, point];
+            let distance = prev.distance;
+
+            if (prev.locations.length > 0) {
+              const lastLocation = prev.locations[prev.locations.length - 1];
+              distance += calculateDistance(
+                lastLocation.latitude,
+                lastLocation.longitude,
+                point.latitude,
+                point.longitude
+              );
+            }
+
+            const maxSpeed = Math.max(prev.maxSpeed, speedKmh);
+            const duration = Date.now() - prev.startTime - prev.pausedDuration;
+            const avgSpeed = duration > 0 ? distance / (duration / 1000 / 3600) : 0;
+
+            if (speedKmh < PAUSE_THRESHOLD_SPEED) {
+              if (lastLowSpeedTime.current === null) {
+                lastLowSpeedTime.current = Date.now();
+                hasShownWarning.current = false;
+              } else {
+                const lowSpeedDuration = Date.now() - lastLowSpeedTime.current;
+
+                if (lowSpeedDuration >= WARNING_TIME && !hasShownWarning.current) {
+                  hasShownWarning.current = true;
+
+                  if (Platform.OS === 'web') {
+                    const userResponse = confirm('Your speed has been under 7 km/h for 10 minutes. Are you still driving?');
+                    if (!userResponse) {
+                      console.log('User confirmed they are not driving');
+                    }
+                  } else {
+                    Alert.alert(
+                      'Still Driving?',
+                      'Your speed has been under 7 km/h for 10 minutes. Are you still driving?',
+                      [
+                        {
+                          text: 'Yes, Continue',
+                          onPress: () => {
+                            lastLowSpeedTime.current = Date.now();
+                            hasShownWarning.current = false;
+                          },
+                          style: 'default',
+                        },
+                        {
+                          text: 'No, End Drive',
+                          onPress: () => {
+                            console.log('User ending drive from warning');
+                          },
+                          style: 'destructive',
+                        },
+                      ],
+                      { cancelable: false }
+                    );
+                  }
+                }
+
+                if (lowSpeedDuration >= PAUSE_THRESHOLD_TIME && !prev.isPaused) {
+                  return { ...prev, isPaused: true };
+                }
+              }
+            } else {
+              lastLowSpeedTime.current = null;
+              hasShownWarning.current = false;
+              if (prev.isPaused) {
+                return { ...prev, isPaused: false };
+              }
+            }
+
+            const updatedTrip: Trip = {
+              ...prev,
+              locations: updatedLocations,
+              distance,
+              maxSpeed,
+              avgSpeed,
+              duration,
+            };
+
+            void AsyncStorage.setItem(ACTIVE_TRIP_STORAGE_KEY, JSON.stringify(updatedTrip));
+            void AsyncStorage.setItem(BG_LAST_POINT_STORAGE_KEY, JSON.stringify(point));
+
+            return updatedTrip;
+          });
+        }
+      );
+
+      locationSubscription.current = subscription;
+      console.log('[TripContext] foreground watch started');
+    } catch (error) {
+      console.error('[TripContext] error starting foreground tracking:', error);
+    }
+  }, [calculateDistance]);
+
+  useEffect(() => {
+    loadTrips();
+    loadStats();
+    loadBonusGP();
+    loadClaimedMissions();
+    requestPermissions();
+
+    appStateSub.current = AppState.addEventListener('change', (nextState) => {
+      appState.current = nextState;
+      console.log('[TripContext] AppState changed:', nextState);
+
+      if (Platform.OS === 'web') return;
+      if (!isTracking) return;
+
+      if (nextState === 'active') {
+        void stopBackgroundLocation();
+        void startForegroundLocationWatch();
+      } else {
+        void stopForegroundLocationWatch();
+        void startBackgroundLocation();
+      }
+    });
+
+    return () => {
+      if (appStateSub.current) {
+        try {
+          appStateSub.current.remove();
+        } catch (error) {
+          console.error('Error removing AppState listener:', error);
+        }
+        appStateSub.current = null;
+      }
+
+      void stopBackgroundLocation();
+      void stopForegroundLocationWatch();
+    };
+  }, [isTracking, startBackgroundLocation, startForegroundLocationWatch, stopBackgroundLocation, stopForegroundLocationWatch]);
 
   const startTrip = useCallback(async (carId?: string, carBrand?: string, carModel?: string, carIcon?: string) => {
     console.log('startTrip called, hasPermission:', hasPermission, 'isTracking:', isTracking);
@@ -266,130 +565,24 @@ export const [TripProvider, useTrip] = createContextHook(() => {
     setIsTracking(true);
     isStoppingRef.current = false;
 
+    try {
+      await AsyncStorage.setItem(ACTIVE_TRIP_STORAGE_KEY, JSON.stringify(newTrip));
+      await AsyncStorage.removeItem(BG_LAST_POINT_STORAGE_KEY);
+    } catch (e) {
+      console.error('[TripContext] failed to persist active trip:', e);
+    }
+
     if (Platform.OS === 'web') {
-      console.log('Web platform - using simulated tracking');
+      console.log('Web platform - background tracking not supported');
       return;
     }
 
-    try {
-      console.log('Starting location watch...');
-      const subscription = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.BestForNavigation,
-          timeInterval: 500,
-          distanceInterval: 1,
-          mayShowUserSettingsDialog: true,
-        },
-        (location) => {
-          if (isStoppingRef.current) return;
-          
-          const speed = (location.coords.speed || 0) < 0 ? 0 : (location.coords.speed || 0);
-          const speedKmh = speed * 3.6;
-
-          const point: LocationPoint = {
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-            speed: speedKmh,
-            timestamp: location.timestamp,
-            accuracy: location.coords.accuracy,
-          };
-
-          setCurrentSpeed(speedKmh);
-          setCurrentLocation(point);
-
-          setCurrentTrip((prev) => {
-            if (!prev || isStoppingRef.current) return prev;
-
-            const updatedLocations = [...prev.locations, point];
-            let distance = prev.distance;
-
-            if (prev.locations.length > 0) {
-              const lastLocation = prev.locations[prev.locations.length - 1];
-              distance += calculateDistance(
-                lastLocation.latitude,
-                lastLocation.longitude,
-                point.latitude,
-                point.longitude
-              );
-            }
-
-            const maxSpeed = Math.max(prev.maxSpeed, speedKmh);
-            const duration = Date.now() - prev.startTime - prev.pausedDuration;
-            const avgSpeed = duration > 0 ? (distance / (duration / 1000 / 3600)) : 0;
-
-            if (speedKmh < PAUSE_THRESHOLD_SPEED) {
-              if (lastLowSpeedTime.current === null) {
-                lastLowSpeedTime.current = Date.now();
-                hasShownWarning.current = false;
-              } else {
-                const lowSpeedDuration = Date.now() - lastLowSpeedTime.current;
-                
-                if (lowSpeedDuration >= WARNING_TIME && !hasShownWarning.current) {
-                  hasShownWarning.current = true;
-                  
-                  if (Platform.OS === 'web') {
-                    const userResponse = confirm('Your speed has been under 7 km/h for 10 minutes. Are you still driving?');
-                    if (!userResponse) {
-                      console.log('User confirmed they are not driving');
-                    }
-                  } else {
-                    Alert.alert(
-                      'Still Driving?',
-                      'Your speed has been under 7 km/h for 10 minutes. Are you still driving?',
-                      [
-                        {
-                          text: 'Yes, Continue',
-                          onPress: () => {
-                            lastLowSpeedTime.current = Date.now();
-                            hasShownWarning.current = false;
-                          },
-                          style: 'default',
-                        },
-                        {
-                          text: 'No, End Drive',
-                          onPress: () => {
-                            console.log('User ending drive from warning');
-                          },
-                          style: 'destructive',
-                        },
-                      ],
-                      { cancelable: false }
-                    );
-                  }
-                }
-                
-                if (lowSpeedDuration >= PAUSE_THRESHOLD_TIME && !prev.isPaused) {
-                  return { ...prev, isPaused: true };
-                }
-              }
-            } else {
-              lastLowSpeedTime.current = null;
-              hasShownWarning.current = false;
-              if (prev.isPaused) {
-                return { ...prev, isPaused: false };
-              }
-            }
-
-            return {
-              ...prev,
-              locations: updatedLocations,
-              distance,
-              maxSpeed,
-              avgSpeed,
-              duration,
-            };
-          });
-        }
-      );
-
-      locationSubscription.current = subscription;
-      console.log('Location subscription started successfully');
-    } catch (error) {
-      console.error('Error starting location tracking:', error);
-      setIsTracking(false);
-      setCurrentTrip(null);
+    if (appState.current === 'active') {
+      await startForegroundLocationWatch();
+    } else {
+      await startBackgroundLocation();
     }
-  }, [hasPermission, isTracking]);
+  }, [hasPermission, isTracking, startBackgroundLocation, startForegroundLocationWatch]);
 
   const stopTrip = useCallback(() => {
     console.log('stopTrip called, isTracking:', isTracking, 'currentTrip:', currentTrip?.id);
@@ -401,16 +594,14 @@ export const [TripProvider, useTrip] = createContextHook(() => {
     
     isStoppingRef.current = true;
     
-    if (locationSubscription.current) {
-      try {
-        console.log('Removing location subscription...');
-        if (typeof locationSubscription.current.remove === 'function') {
-          locationSubscription.current.remove();
-        }
-      } catch (error) {
-        console.error('Error removing location subscription:', error);
-      }
-      locationSubscription.current = null;
+    void stopForegroundLocationWatch();
+    void stopBackgroundLocation();
+
+    try {
+      void AsyncStorage.removeItem(ACTIVE_TRIP_STORAGE_KEY);
+      void AsyncStorage.removeItem(BG_LAST_POINT_STORAGE_KEY);
+    } catch (e) {
+      console.error('[TripContext] failed clearing active trip storage:', e);
     }
 
     if (pauseTimerRef.current) {
@@ -475,7 +666,7 @@ export const [TripProvider, useTrip] = createContextHook(() => {
     setTimeout(() => {
       isStoppingRef.current = false;
     }, 500);
-  }, [currentTrip, isTracking, syncToBackend]);
+  }, [currentTrip, isTracking, syncToBackend, stopBackgroundLocation, stopForegroundLocationWatch]);
 
   const deleteTrip = useCallback((tripId: string) => {
     setTrips((prev) => {
