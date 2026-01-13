@@ -27,6 +27,7 @@ export default function DriveScreen() {
   } = useTrip();
 
   const { userProfile, hasSeenOnboarding, markOnboardingAsSeen } = useUser();
+  const totalGPSPoints = useTrip().totalGPSPoints;
   const [selectedCar, setSelectedCar] = useState<Car | null>(null);
   const [showCarSelector, setShowCarSelector] = useState(false);
   const [displayDuration, setDisplayDuration] = useState(0);
@@ -40,9 +41,7 @@ export default function DriveScreen() {
     return trips[0];
   }, [trips]);
 
-  const totalGPSPoints = useMemo(() => {
-    return Math.floor(trips.reduce((sum, trip) => sum + trip.distance, 0));
-  }, [trips]);
+  
 
   useEffect(() => {
     if (!hasSeenOnboarding && !isTracking) {
@@ -224,7 +223,7 @@ export default function DriveScreen() {
   const currentStep = onboardingSteps[onboardingStep];
   const StepIcon = currentStep?.icon;
 
-  const mapRef = useRef<MapView>(null);
+
 
   const handleStartDriveMemo = useCallback(() => {
     if (userProfile && userProfile.cars.length > 0 && !selectedCar) {
@@ -239,24 +238,24 @@ export default function DriveScreen() {
   if (!isTracking) {
     return (
       <View style={styles.container}>
-        <MapView
-          ref={mapRef}
-          style={styles.backgroundMap}
-          provider={Platform.OS === 'ios' ? undefined : PROVIDER_GOOGLE}
-          region={region}
-          mapType="standard"
-          showsUserLocation
-          showsMyLocationButton={false}
-          scrollEnabled={false}
-          zoomEnabled={false}
-          rotateEnabled={false}
-          pitchEnabled={false}
-          toolbarEnabled={false}
-          loadingEnabled={false}
-        />
-        <View style={styles.mapOverlay} />
+        <View style={styles.backgroundPattern}>
+          <LinearGradient
+            colors={['#0a1628', '#0d1f3c', '#0a1628']}
+            style={styles.backgroundGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          />
+          <View style={styles.decorativeCircle1} />
+          <View style={styles.decorativeCircle2} />
+          <View style={styles.decorativeCircle3} />
+          <View style={styles.roadLines}>
+            <View style={styles.roadLine} />
+            <View style={[styles.roadLine, styles.roadLine2]} />
+            <View style={[styles.roadLine, styles.roadLine3]} />
+          </View>
+        </View>
         <LinearGradient
-          colors={['rgba(0,0,0,0.85)', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.85)']}
+          colors={['rgba(10,22,40,0.95)', 'rgba(10,22,40,0.85)', 'rgba(10,22,40,0.95)']}
           style={styles.preStartContainer}
         >
           <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
@@ -605,12 +604,65 @@ const styles = StyleSheet.create({
   map: {
     ...StyleSheet.absoluteFillObject,
   },
-  backgroundMap: {
+  backgroundPattern: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+  },
+  backgroundGradient: {
     ...StyleSheet.absoluteFillObject,
   },
-  mapOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  decorativeCircle1: {
+    position: 'absolute',
+    top: -100,
+    right: -50,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: 'rgba(10, 132, 255, 0.08)',
+  },
+  decorativeCircle2: {
+    position: 'absolute',
+    bottom: 100,
+    left: -100,
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    backgroundColor: 'rgba(48, 209, 88, 0.06)',
+  },
+  decorativeCircle3: {
+    position: 'absolute',
+    top: '40%',
+    right: -80,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255, 215, 0, 0.04)',
+  },
+  roadLines: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  roadLine: {
+    position: 'absolute',
+    width: 2,
+    height: '120%',
+    backgroundColor: 'rgba(10, 132, 255, 0.1)',
+    transform: [{ rotate: '15deg' }],
+    left: '20%',
+    top: -50,
+  },
+  roadLine2: {
+    left: '50%',
+    backgroundColor: 'rgba(48, 209, 88, 0.08)',
+    transform: [{ rotate: '-10deg' }],
+  },
+  roadLine3: {
+    left: '80%',
+    backgroundColor: 'rgba(255, 215, 0, 0.06)',
+    transform: [{ rotate: '20deg' }],
   },
   preStartContainer: {
     flex: 1,

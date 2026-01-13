@@ -55,17 +55,32 @@ export default function LeaderboardScreen() {
   }, [trips]);
 
   const { syncToBackend } = useUser();
+  const [lastSyncTime, setLastSyncTime] = useState<number>(0);
 
   useEffect(() => {
-    if (authUser && userProfile) {
-      console.log('Syncing stats to backend:', localStats);
-      syncToBackend({
-        totalDistance: localStats.totalDistance,
-        totalTrips: localStats.totalTrips,
-        totalGPSPoints: localStats.totalGPSPoints,
-        roadCoveragePercent: localStats.roadCoveragePercent,
-      });
-    }
+    const syncData = async () => {
+      if (authUser && userProfile) {
+        const now = Date.now();
+        if (now - lastSyncTime < 5000) return;
+        
+        console.log('Syncing stats to backend:', localStats);
+        setLastSyncTime(now);
+        try {
+          await syncToBackend({
+            totalDistance: localStats.totalDistance,
+            totalTrips: localStats.totalTrips,
+            totalGPSPoints: localStats.totalGPSPoints,
+            roadCoveragePercent: localStats.roadCoveragePercent,
+          });
+          console.log('Sync completed, refetching leaderboard...');
+          leaderboardQuery.refetch();
+        } catch (error) {
+          console.log('Sync failed:', error);
+        }
+      }
+    };
+    
+    syncData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser?.id, localStats.totalDistance, localStats.totalTrips, localStats.totalGPSPoints]);
 
@@ -77,17 +92,29 @@ export default function LeaderboardScreen() {
     },
     {
       enabled: !!authUser,
-      refetchInterval: 15000,
-      retry: 3,
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
-      staleTime: 5000,
+      refetchInterval: 10000,
+      retry: 5,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 8000),
+      staleTime: 3000,
+      refetchOnMount: 'always',
+      refetchOnWindowFocus: true,
     }
   );
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
+      if (authUser && userProfile) {
+        await syncToBackend({
+          totalDistance: localStats.totalDistance,
+          totalTrips: localStats.totalTrips,
+          totalGPSPoints: localStats.totalGPSPoints,
+          roadCoveragePercent: localStats.roadCoveragePercent,
+        });
+      }
       await leaderboardQuery.refetch();
+    } catch (error) {
+      console.log('Refresh failed:', error);
     } finally {
       setIsRefreshing(false);
     }

@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Target, Clock, CheckCircle2, Trophy, Zap, Navigation, Moon, TrendingUp, ShoppingBag, Users } from 'lucide-react-native';
 import { theme } from '@/constants/theme';
 import { useTrip } from '@/contexts/TripContext';
+import * as Haptics from 'expo-haptics';
 import { trpc } from '@/lib/trpc';
 import { Image } from 'expo-image';
 
@@ -25,9 +26,8 @@ interface Mission {
 
 export default function MissionsScreen() {
   const router = useRouter();
-  const { trips } = useTrip();
+  const { trips, totalGPSPoints, addBonusGPPoints, isMissionClaimed } = useTrip();
   const [selectedPeriod, setSelectedPeriod] = useState<MissionPeriod>('daily');
-  const [claimedMissions, setClaimedMissions] = useState<Set<string>>(new Set());
 
   const friendsProgressQuery = trpc.trips.getFriendsProgress.useQuery(undefined, {
     refetchInterval: 30000,
@@ -221,16 +221,16 @@ export default function MissionsScreen() {
     return allMissions.filter(m => m.period === selectedPeriod);
   }, [trips, selectedPeriod]);
 
-  const handleClaimMission = (missionId: string) => {
-    setClaimedMissions(new Set([...claimedMissions, missionId]));
+  const handleClaimMission = (mission: Mission) => {
+    const success = addBonusGPPoints(mission.reward, mission.id);
+    if (success) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      console.log('Mission claimed:', mission.id, 'Reward:', mission.reward);
+    }
   };
 
   const completedCount = missions.filter(m => m.completed).length;
-  const totalRewards = missions.reduce((sum, m) => sum + (m.completed ? m.reward : 0), 0);
-
-  const totalGPSPoints = useMemo(() => {
-    return Math.floor(trips.reduce((sum, trip) => sum + trip.distance, 0));
-  }, [trips]);
+  const claimedRewards = missions.reduce((sum, m) => sum + (m.completed && isMissionClaimed(m.id) ? m.reward : 0), 0);
 
   const getMissionIcon = (type: Mission['type']) => {
     switch (type) {
@@ -251,7 +251,7 @@ export default function MissionsScreen() {
 
   const renderMission = (mission: Mission) => {
     const progress = Math.min((mission.current / mission.target) * 100, 100);
-    const isClaimed = claimedMissions.has(mission.id);
+    const isClaimed = isMissionClaimed(mission.id);
 
     return (
       <Pressable
@@ -262,7 +262,7 @@ export default function MissionsScreen() {
           isClaimed && styles.missionCardClaimed,
         ]}
         disabled={!mission.completed || isClaimed}
-        onPress={() => mission.completed && !isClaimed && handleClaimMission(mission.id)}
+        onPress={() => mission.completed && !isClaimed && handleClaimMission(mission)}
       >
         <View style={styles.missionHeader}>
           <View style={[
@@ -408,8 +408,8 @@ export default function MissionsScreen() {
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>{totalRewards} GP</Text>
-          <Text style={styles.statLabel}>Earned</Text>
+          <Text style={styles.statValue}>{claimedRewards} GP</Text>
+          <Text style={styles.statLabel}>Claimed</Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>

@@ -236,12 +236,17 @@ export default function HistoryScreen() {
                   ]}
                   onPress={() => setSelectedCarId(selectedCarId === car.id ? null : car.id)}
                 >
-                  <Text style={styles.carFilterIcon}>{car.icon}</Text>
+                  {car.icon && car.icon.startsWith('http') ? (
+                    <Image source={{ uri: car.icon }} style={styles.carFilterImage} />
+                  ) : (
+                    <Text style={styles.carFilterIcon}>{car.icon}</Text>
+                  )}
                   <Text
                     style={[
                       styles.carFilterText,
                       selectedCarId === car.id && styles.carFilterTextActive,
                     ]}
+                    numberOfLines={1}
                   >
                     {car.brand}
                   </Text>
@@ -311,7 +316,13 @@ export default function HistoryScreen() {
                         <Text style={styles.friendTripUsername}>{trip.username}</Text>
                       </View>
                     )}
-                    {trip.carIcon && <Text style={styles.tripCarIcon}>{trip.carIcon}</Text>}
+                    {trip.carIcon && (
+                      trip.carIcon.startsWith('http') ? (
+                        <Image source={{ uri: trip.carIcon }} style={styles.tripCarImage} />
+                      ) : (
+                        <Text style={styles.tripCarIcon}>{trip.carIcon}</Text>
+                      )
+                    )}
                     <Text style={styles.tripDate}>{formatDate(trip.startTime)}</Text>
                   </View>
                   {viewMode === 'my-trips' && <ChevronRight size={20} color={theme.colors.dark.textSecondary} />}
@@ -520,6 +531,11 @@ const styles = StyleSheet.create({
   tripCarIcon: {
     fontSize: 18,
   },
+  tripCarImage: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+  },
   tripDate: {
     ...theme.typography.callout,
     color: theme.colors.dark.textSecondary,
@@ -561,6 +577,11 @@ const styles = StyleSheet.create({
   },
   carFilterIcon: {
     fontSize: 16,
+  },
+  carFilterImage: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
   },
   carFilterText: {
     ...theme.typography.callout,

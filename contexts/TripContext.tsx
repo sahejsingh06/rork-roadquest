@@ -8,6 +8,8 @@ import { useUser } from '@/contexts/UserContext';
 
 const TRIPS_STORAGE_KEY = '@roadquest_trips';
 const STATS_STORAGE_KEY = '@roadquest_stats';
+const BONUS_GP_STORAGE_KEY = '@roadquest_bonus_gp';
+const CLAIMED_MISSIONS_KEY = '@roadquest_claimed_missions';
 const PAUSE_THRESHOLD_SPEED = 7 / 3.6;
 const PAUSE_THRESHOLD_TIME = 10 * 60 * 1000;
 const WARNING_TIME = 10 * 60 * 1000;
@@ -28,6 +30,8 @@ export const [TripProvider, useTrip] = createContextHook(() => {
   });
   const [hasPermission, setHasPermission] = useState(Platform.OS === 'web');
   const [useKmh, setUseKmh] = useState(true);
+  const [bonusGPPoints, setBonusGPPoints] = useState(0);
+  const [claimedMissionIds, setClaimedMissionIds] = useState<string[]>([]);
   const isStoppingRef = useRef(false);
 
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
@@ -48,6 +52,8 @@ export const [TripProvider, useTrip] = createContextHook(() => {
   useEffect(() => {
     loadTrips();
     loadStats();
+    loadBonusGP();
+    loadClaimedMissions();
     requestPermissions();
 
     return () => {
@@ -144,6 +150,71 @@ export const [TripProvider, useTrip] = createContextHook(() => {
       await AsyncStorage.setItem(STATS_STORAGE_KEY, JSON.stringify(newStats));
     } catch (error) {
       console.error('Error saving stats:', error);
+    }
+  };
+
+  const loadBonusGP = async () => {
+    try {
+      const stored = await AsyncStorage.getItem(BONUS_GP_STORAGE_KEY);
+      if (stored) {
+        setBonusGPPoints(JSON.parse(stored));
+      }
+    } catch (error) {
+      console.error('Error loading bonus GP:', error);
+    }
+  };
+
+  const saveBonusGP = async (newBonusGP: number) => {
+    try {
+      await AsyncStorage.setItem(BONUS_GP_STORAGE_KEY, JSON.stringify(newBonusGP));
+    } catch (error) {
+      console.error('Error saving bonus GP:', error);
+    }
+  };
+
+  const loadClaimedMissions = async () => {
+    try {
+      const stored = await AsyncStorage.getItem(CLAIMED_MISSIONS_KEY);
+      if (stored) {
+        const data = JSON.parse(stored);
+        const now = Date.now();
+        const startOfDay = new Date(now).setHours(0, 0, 0, 0);
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+        startOfWeek.setHours(0, 0, 0, 0);
+        const startOfMonth = new Date(now);
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+        
+        const validMissions = data.filter((item: { id: string; claimedAt: number }) => {
+          if (item.id.startsWith('d')) {
+            return item.claimedAt >= startOfDay;
+          } else if (item.id.startsWith('w')) {
+            return item.claimedAt >= startOfWeek.getTime();
+          } else if (item.id.startsWith('m')) {
+            return item.claimedAt >= startOfMonth.getTime();
+          }
+          return false;
+        });
+        
+        setClaimedMissionIds(validMissions.map((item: { id: string }) => item.id));
+        if (validMissions.length !== data.length) {
+          await AsyncStorage.setItem(CLAIMED_MISSIONS_KEY, JSON.stringify(validMissions));
+        }
+      }
+    } catch (error) {
+      console.error('Error loading claimed missions:', error);
+    }
+  };
+
+  const saveClaimedMission = async (missionId: string) => {
+    try {
+      const stored = await AsyncStorage.getItem(CLAIMED_MISSIONS_KEY);
+      const existing = stored ? JSON.parse(stored) : [];
+      const updated = [...existing, { id: missionId, claimedAt: Date.now() }];
+      await AsyncStorage.setItem(CLAIMED_MISSIONS_KEY, JSON.stringify(updated));
+    } catch (error) {
+      console.error('Error saving claimed mission:', error);
     }
   };
 
@@ -436,6 +507,29 @@ export const [TripProvider, useTrip] = createContextHook(() => {
     setUseKmh(prev => !prev);
   };
 
+  const addBonusGPPoints = useCallback((points: number, missionId: string) => {
+    if (claimedMissionIds.includes(missionId)) {
+      console.log('Mission already claimed:', missionId);
+      return false;
+    }
+    
+    const newBonusGP = bonusGPPoints + points;
+    setBonusGPPoints(newBonusGP);
+    saveBonusGP(newBonusGP);
+    
+    setClaimedMissionIds(prev => [...prev, missionId]);
+    saveClaimedMission(missionId);
+    
+    console.log('Added bonus GP:', points, 'Total bonus GP:', newBonusGP);
+    return true;
+  }, [bonusGPPoints, claimedMissionIds]);
+
+  const isMissionClaimed = useCallback((missionId: string) => {
+    return claimedMissionIds.includes(missionId);
+  }, [claimedMissionIds]);
+
+  const totalGPSPoints = Math.floor(stats.totalDistance) + bonusGPPoints;
+
   const toggleTripSharing = useCallback((tripId: string, shared: boolean) => {
     setTrips((prev) => {
       const updatedTrips = prev.map(trip => 
@@ -459,11 +553,15 @@ export const [TripProvider, useTrip] = createContextHook(() => {
     stats,
     hasPermission,
     useKmh,
+    bonusGPPoints,
+    totalGPSPoints,
     startTrip,
     stopTrip,
     deleteTrip,
     toggleUnit,
     toggleTripSharing,
     getTripById,
+    addBonusGPPoints,
+    isMissionClaimed,
   };
 });
