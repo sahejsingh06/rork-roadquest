@@ -259,6 +259,41 @@ class RorkDB {
       return [];
     }
   }
+
+  async deleteUser(userId: string): Promise<void> {
+    try {
+      await this.init();
+      
+      console.log('Deleting user data for:', userId);
+      
+      await this.client.query(
+        'DELETE FROM trip WHERE userId = $userId',
+        { userId }
+      );
+      console.log('Deleted trips for user:', userId);
+      
+      await this.client.query(
+        'DELETE FROM friendship WHERE userId = $userId OR friendId = $userId',
+        { userId }
+      );
+      console.log('Deleted friendships for user:', userId);
+      
+      await this.client.query(
+        'DELETE FROM leaderboard WHERE userId = $userId',
+        { userId }
+      );
+      console.log('Deleted leaderboard entries for user:', userId);
+      
+      await this.client.query(
+        'DELETE FROM type::thing("user", $userId)',
+        { userId }
+      );
+      console.log('Deleted user:', userId);
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      throw error;
+    }
+  }
 }
 
 export const db = new RorkDB();
