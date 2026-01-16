@@ -16,10 +16,8 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "app.rork.roadquest",
-      "infoPlist": {
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Allow $(PRODUCT_NAME) to use your location.",
-        "NSLocationAlwaysUsageDescription": "Allow $(PRODUCT_NAME) to use your location.",
-        "NSLocationWhenInUseUsageDescription": "Allow $(PRODUCT_NAME) to use your location.",
+     "NSLocationWhenInUseUsageDescription": "RoadQuest uses your location to track driving distance, speed, and road coverage during trips, and to generate route maps and driving statistics.",
+"NSLocationAlwaysAndWhenInUseUsageDescription": "RoadQuest uses your location in the background to continue recording your trip (distance, speed, and route) while you keep your phone locked or use other apps.",
         "UIBackgroundModes": [
           "location",
           "background-processing"
@@ -68,7 +66,7 @@
           "isIosBackgroundLocationEnabled": true,
           "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location."
         }
-      ],
+      "locationAlwaysAndWhenInUsePermission": "RoadQuest uses your location in the background to continue recording your trip (distance, speed, and route) while you keep your phone locked or use other apps."
       "expo-apple-authentication",
       [
         "expo-image-picker",
