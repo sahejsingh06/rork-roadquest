@@ -24,7 +24,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const [isLoading, setIsLoading] = useState(true);
 
   const redirectUri = makeRedirectUri({
-    scheme: 'rork-app',
+    scheme: 'roadquest',
     path: 'auth',
   });
 
@@ -170,18 +170,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     }
   }, []);
 
-  const deleteAccount = useCallback(async () => {
-    console.log('Deleting account...');
-    try {
-      await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
-      setUser(null);
-    } catch (error) {
-      console.error('Error deleting account locally:', error);
-      throw error;
-    }
-  }, []);
-
-  const isAppleAuthAvailable = Platform.OS === 'ios';
+  const isAppleAuthAvailable = Platform.OS === 'ios' || Platform.OS === 'android';
 
   return {
     user,
@@ -190,7 +179,6 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     signInWithGoogle,
     signInWithApple,
     signOut,
-    deleteAccount,
     isAppleAuthAvailable,
   };
 });

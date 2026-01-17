@@ -115,11 +115,4 @@ export const userRouter = createTRPCRouter({
       console.log('Search results:', results.length);
       return results;
     }),
-
-  deleteAccount: protectedProcedure
-    .mutation(async ({ ctx }) => {
-      console.log('Deleting account for user:', ctx.userId);
-      await db.deleteUser(ctx.userId);
-      return { success: true };
-    }),
 });
