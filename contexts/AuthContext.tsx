@@ -5,7 +5,6 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { Platform, Alert } from 'react-native';
-import { makeRedirectUri } from 'expo-auth-session';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -23,16 +22,10 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const redirectUri = makeRedirectUri({
-    scheme: 'roadquest',
-    path: 'auth',
-  });
-
   const [request, googleResponse, googlePromptAsync] = Google.useAuthRequest({
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '',
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '',
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '',
-    redirectUri: Platform.OS === 'web' ? undefined : redirectUri,
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
   });
 
   const loadUser = async () => {
@@ -133,6 +126,11 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const signInWithApple = useCallback(async () => {
     console.log('Signing in with Apple...');
     try {
+      if (Platform.OS === 'web') {
+        Alert.alert('Not Available', 'Apple Sign In is only available on iOS devices. Please use Google Sign In on web.');
+        return;
+      }
+
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
@@ -156,6 +154,9 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         console.log('Apple sign in canceled');
       } else {
         console.error('Apple sign in error:', error);
+        if (Platform.OS !== 'web') {
+          Alert.alert('Error', 'Failed to sign in with Apple. Please try again.');
+        }
       }
     }
   }, []);
@@ -170,7 +171,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     }
   }, []);
 
-  const isAppleAuthAvailable = Platform.OS === 'ios' || Platform.OS === 'android';
+  const isAppleAuthAvailable = true;
 
   return {
     user,
