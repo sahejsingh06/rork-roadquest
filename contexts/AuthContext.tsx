@@ -24,7 +24,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const [isLoading, setIsLoading] = useState(true);
 
   const redirectUri = makeRedirectUri({
-    scheme: 'roadquest',
+    scheme: 'rork-app',
     path: 'auth',
   });
 
@@ -181,7 +181,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     }
   }, []);
 
-  const isAppleAuthAvailable = Platform.OS === 'ios' || Platform.OS === 'android';
+  const isAppleAuthAvailable = Platform.OS === 'ios';
 
   return {
     user,
