@@ -242,6 +242,26 @@ export const [UserProvider, useUser] = createContextHook(() => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser?.id, userProfile?.username]);
 
+  const deleteAccountMutation = trpc.user.deleteAccount.useMutation();
+
+  const deleteAccount = useCallback(async () => {
+    if (!authUser) return;
+    try {
+      await deleteAccountMutation.mutateAsync();
+      await AsyncStorage.clear();
+      // We keep the auth token removal for the auth context to handle sign out
+      // But we should probably call signOut from auth context too.
+      // However, since we are inside UserContext, we can't easily call signOut from AuthContext if it wasn't passed or if it creates a cycle.
+      // But we are using useAuth() hook at top.
+      
+      // Let's assume the caller will handle the actual sign out (redirect) or we can just reload.
+      // But we should clear local storage.
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      throw error;
+    }
+  }, [authUser, deleteAccountMutation]);
+
   return {
     userProfile,
     isLoading,
@@ -258,5 +278,6 @@ export const [UserProvider, useUser] = createContextHook(() => {
     canChangeUsername,
     daysUntilUsernameChange,
     syncToBackend,
+    deleteAccount,
   };
 });

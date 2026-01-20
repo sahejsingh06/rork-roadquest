@@ -1,15 +1,49 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, Pressable, Switch } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Pressable, Switch, Alert, ActivityIndicator } from 'react-native';
 import { useTrip } from '@/contexts/TripContext';
+import { useUser } from '@/contexts/UserContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { theme } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { Trash2 } from 'lucide-react-native';
 
 const SPEED_THRESHOLDS = [80, 100, 120, 150];
 
 export default function SettingsScreen() {
   const { useKmh, toggleUnit } = useTrip();
+  const { deleteAccount } = useUser();
+  const { signOut } = useAuth();
   const [highSpeedThreshold, setHighSpeedThreshold] = useState(100);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to delete your account? This action is irreversible and will delete all your data.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setIsDeleting(true);
+            try {
+              await deleteAccount();
+              await signOut();
+              router.replace('/sign-in');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete account. Please try again.');
+              setIsDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -86,6 +120,26 @@ export default function SettingsScreen() {
                 <Text style={styles.settingDescription}>1.0.0</Text>
               </View>
             </View>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Danger Zone</Text>
+          <View style={styles.card}>
+            <Pressable
+              style={styles.deleteButton}
+              onPress={handleDeleteAccount}
+              disabled={isDeleting}
+            >
+              <Trash2 size={20} color={theme.colors.dark.danger} />
+              <Text style={styles.deleteButtonText}>
+                {isDeleting ? 'Deleting Account...' : 'Delete Account'}
+              </Text>
+              {isDeleting && <ActivityIndicator size="small" color={theme.colors.dark.danger} />}
+            </Pressable>
+            <Text style={styles.deleteDescription}>
+              Permanently delete your account and all associated data.
+            </Text>
           </View>
         </View>
       </ScrollView>
@@ -204,5 +258,21 @@ const styles = StyleSheet.create({
   },
   thresholdTextSelected: {
     color: theme.colors.dark.background,
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    paddingVertical: theme.spacing.sm,
+  },
+  deleteButtonText: {
+    ...theme.typography.callout,
+    color: theme.colors.dark.danger,
+    fontWeight: '600' as const,
+  },
+  deleteDescription: {
+    ...theme.typography.caption1,
+    color: theme.colors.dark.textSecondary,
+    marginTop: theme.spacing.sm,
   },
 });

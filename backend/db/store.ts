@@ -174,6 +174,29 @@ class RorkDB {
     }
   }
 
+  async deleteUser(userId: string): Promise<void> {
+    try {
+      await this.init();
+      
+      // Delete user
+      await this.client.query('DELETE type::thing("user", $id)', { id: userId });
+      
+      // Delete friendships
+      await this.client.query('DELETE friendship WHERE userId = $userId OR friendId = $userId', { userId });
+      
+      // Delete trips
+      await this.client.query('DELETE trip WHERE userId = $userId', { userId });
+      
+      // Delete leaderboard entries
+      await this.client.query('DELETE leaderboard WHERE userId = $userId', { userId });
+
+      console.log('User deleted:', userId);
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      throw error;
+    }
+  }
+
   async setLeaderboardEntry(entry: DBLeaderboardEntry): Promise<void> {
     try {
       await this.init();

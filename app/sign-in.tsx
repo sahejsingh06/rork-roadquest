@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { theme } from '@/constants/theme';
-import { LogIn } from 'lucide-react-native';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function SignInScreen() {
@@ -29,7 +29,11 @@ export default function SignInScreen() {
     >
       <View style={styles.content}>
         <View style={styles.logoContainer}>
-          <LogIn size={80} color={theme.colors.dark.accent} strokeWidth={1.5} />
+          <Image 
+            source={{ uri: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/irguqn57oqnq28x5827m0' }}
+            style={{ width: 120, height: 120 }}
+            contentFit="contain"
+          />
           <Text style={styles.title}>RoadQuest</Text>
           <Text style={styles.subtitle}>Track your driving adventures</Text>
         </View>

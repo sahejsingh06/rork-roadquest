@@ -91,6 +91,11 @@ export const userRouter = createTRPCRouter({
       return user || null;
     }),
 
+  deleteAccount: protectedProcedure.mutation(async ({ ctx }) => {
+    await db.deleteUser(ctx.userId);
+    return { success: true };
+  }),
+
   search: protectedProcedure
     .input(z.object({ query: z.string() }))
     .query(async ({ ctx, input }) => {

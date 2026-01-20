@@ -30,7 +30,7 @@ export default function DriveScreen() {
     dismissPendingCarSelection,
   } = useTrip();
 
-  const { userProfile, hasSeenOnboarding, markOnboardingAsSeen } = useUser();
+  const { userProfile, hasSeenOnboarding, markOnboardingAsSeen, isLoading: isUserLoading } = useUser();
   const totalGPSPoints = useTrip().totalGPSPoints;
   const [selectedCar, setSelectedCar] = useState<Car | null>(null);
   const [showCarSelector, setShowCarSelector] = useState(false);
@@ -49,8 +49,8 @@ export default function DriveScreen() {
   
 
   useEffect(() => {
-    if (!hasSeenOnboarding && !isTracking) {
-      setTimeout(() => {
+    if (!isUserLoading && !hasSeenOnboarding && !isTracking) {
+      const timer = setTimeout(() => {
         setShowOnboarding(true);
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -58,8 +58,9 @@ export default function DriveScreen() {
           useNativeDriver: true,
         }).start();
       }, 1000);
+      return () => clearTimeout(timer);
     }
-  }, [hasSeenOnboarding, isTracking, fadeAnim]);
+  }, [hasSeenOnboarding, isTracking, fadeAnim, isUserLoading]);
 
   useEffect(() => {
     if (pendingTripForCarSelection && userProfile && userProfile.cars.length > 0) {
