@@ -36,6 +36,7 @@ export default function SettingsScreen() {
               await signOut();
               router.replace('/sign-in');
             } catch (error) {
+              console.error('Delete account error:', error);
               Alert.alert('Error', 'Failed to delete account. Please try again.');
               setIsDeleting(false);
             }
